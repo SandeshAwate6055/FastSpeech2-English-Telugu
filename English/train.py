@@ -217,7 +217,7 @@ def main(args, configs):
     best_val_ckpt = os.path.join(train_config["path"]["ckpt_path"], "best_val.pth.tar")
     if os.path.exists(best_val_ckpt):
         try:
-            best_val_loss = float(torch.load(best_val_ckpt, map_location="cpu").get("val_loss", float("inf")))
+            best_val_loss = float(torch.load(best_val_ckpt, map_location="cpu", weights_only=False).get("val_loss", float("inf")))
         except Exception:
             pass
     grad_acc_step = train_config["optimizer"]["grad_acc_step"]

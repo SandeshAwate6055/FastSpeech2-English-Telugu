@@ -20,7 +20,7 @@ def get_model(args, configs, device, train=False):
             train_config["path"]["ckpt_path"],
             "{}.pth.tar".format(args.restore_step),
         )
-        ckpt = torch.load(ckpt_path, map_location=device)
+        ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
         model.load_state_dict(ckpt["model"])
 
     if train:
@@ -83,7 +83,7 @@ def get_vocoder(config, device):
             ckpt_file = _ensure_hifigan_ckpt(hifigan_dir, "generator_LJSpeech.pth.tar")
         elif speaker == "universal":
             ckpt_file = _ensure_hifigan_ckpt(hifigan_dir, "generator_universal.pth.tar")
-        ckpt = torch.load(ckpt_file, map_location=device)
+        ckpt = torch.load(ckpt_file, map_location=device, weights_only=False)
         vocoder.load_state_dict(ckpt["generator"])
         vocoder.eval()
         vocoder.remove_weight_norm()
