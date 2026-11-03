@@ -1,0 +1,13 @@
+# Ignore raw datasets, preprocessed features, and intermediate logs
+**/raw_data/
+**/preprocessed_data/
+**/data/
+**/logs/
+**/*.npy
+**/__pycache__/
+*.pyc
+.DS_Store
+
+# Ignore local uncompressed vocoder weights (auto-extracted from reference or downloaded)
+**/hifigan/*.pth.tar
+**/hifigan/*.zip
