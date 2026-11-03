@@ -25,11 +25,14 @@ class Dataset(Dataset):
             self.speaker_map = json.load(f)
         self.sort = sort
         self.drop_last = drop_last
+        self._cache = {}
 
     def __len__(self):
         return len(self.text)
 
     def __getitem__(self, idx):
+        if idx in self._cache:
+            return self._cache[idx]
         basename = self.basename[idx]
         speaker = self.speaker[idx]
         speaker_id = self.speaker_map[speaker]
@@ -71,6 +74,7 @@ class Dataset(Dataset):
             "duration": duration,
         }
 
+        self._cache[idx] = sample
         return sample
 
     def process_meta(self, filename):
@@ -164,6 +168,8 @@ class TextDataset(Dataset):
         return len(self.text)
 
     def __getitem__(self, idx):
+        if idx in self._cache:
+            return self._cache[idx]
         basename = self.basename[idx]
         speaker = self.speaker[idx]
         speaker_id = self.speaker_map[speaker]

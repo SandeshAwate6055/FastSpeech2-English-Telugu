@@ -93,18 +93,26 @@ def save_loss_plot(csv_path, out_png_path, title_prefix):
     plt.close(fig)
 
 
+_VAL_LOADER_CACHE = {}
+
+
 def evaluate_with_losses(model, step, configs, logger=None, vocoder=None):
     preprocess_config, model_config, train_config = configs
-    dataset = Dataset(
-        "val.txt", preprocess_config, train_config, sort=False, drop_last=False
-    )
-    batch_size = train_config["optimizer"]["batch_size"]
-    loader = DataLoader(
-        dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        collate_fn=dataset.collate_fn,
-    )
+    cache_key = preprocess_config["path"]["preprocessed_path"]
+    if cache_key not in _VAL_LOADER_CACHE:
+        dataset = Dataset(
+            "val.txt", preprocess_config, train_config, sort=False, drop_last=False
+        )
+        batch_size = train_config["optimizer"]["batch_size"]
+        loader = DataLoader(
+            dataset,
+            batch_size=batch_size,
+            shuffle=False,
+            collate_fn=dataset.collate_fn,
+        )
+        _VAL_LOADER_CACHE[cache_key] = (dataset, loader)
+    else:
+        dataset, loader = _VAL_LOADER_CACHE[cache_key]
     Loss = FastSpeech2Loss(preprocess_config, model_config).to(device)
 
     loss_sums = [0.0 for _ in range(6)]
@@ -206,6 +214,12 @@ def main(args, configs):
     step = args.restore_step + 1
     epoch = 1
     best_val_loss = float("inf")
+    best_val_ckpt = os.path.join(train_config["path"]["ckpt_path"], "best_val.pth.tar")
+    if os.path.exists(best_val_ckpt):
+        try:
+            best_val_loss = float(torch.load(best_val_ckpt, map_location="cpu").get("val_loss", float("inf")))
+        except Exception:
+            pass
     grad_acc_step = train_config["optimizer"]["grad_acc_step"]
     grad_clip_thresh = train_config["optimizer"]["grad_clip_thresh"]
     total_step = train_config["step"]["total_step"]
