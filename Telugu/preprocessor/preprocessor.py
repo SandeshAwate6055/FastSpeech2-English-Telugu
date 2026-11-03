@@ -255,7 +255,8 @@ class Preprocessor:
         )
 
         try:
-            textgrid = tgt.io.read_textgrid(tg_path)
+            # MFA 2.x writes pauses as empty intervals; tgt drops them unless include_empty_intervals=True.
+            textgrid = tgt.io.read_textgrid(tg_path, include_empty_intervals=True)
             phone, duration, start, end = self.get_alignment(
                 textgrid.get_tier_by_name("phones")
             )
@@ -357,8 +358,17 @@ class Preprocessor:
         start_time = 0
         end_time = 0
         end_idx = 0
+
+        # Ensure contiguous intervals by explicitly filling any gap with silence
+        intervals = []
+        prev_end = None
         for t in tier._objects:
-            s, e, p = t.start_time, t.end_time, t.text
+            if prev_end is not None and t.start_time - prev_end > 1e-6:
+                intervals.append((prev_end, t.start_time, ""))
+            intervals.append((t.start_time, t.end_time, t.text.strip()))
+            prev_end = t.end_time
+
+        for s, e, p in intervals:
 
             if phones == []:
                 if p in sil_phones:

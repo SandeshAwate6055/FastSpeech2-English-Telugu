@@ -191,6 +191,26 @@ def run_inference(args, configs):
         args.restore_step = find_latest_step(train_config["path"]["ckpt_path"])
         print(f"Auto-selected checkpoint step: {args.restore_step}")
 
+    # Auto-select the speaker with the most training clips if default speaker_id=0 has sparse data
+    pre_dir = preprocess_config["path"]["preprocessed_path"]
+    spk_json = os.path.join(pre_dir, "speakers.json")
+    train_txt = os.path.join(pre_dir, "train.txt")
+    if args.speaker_id == 0 and os.path.exists(spk_json) and os.path.exists(train_txt):
+        import collections
+        with open(spk_json, "r", encoding="utf-8") as f:
+            spk_map = json.load(f)
+        counts = collections.Counter()
+        with open(train_txt, "r", encoding="utf-8") as f:
+            for line in f:
+                parts = line.strip().split("|")
+                if len(parts) >= 2:
+                    counts[parts[1]] += 1
+        if counts:
+            best_spk_name, best_cnt = counts.most_common(1)[0]
+            if best_spk_name in spk_map:
+                args.speaker_id = int(spk_map[best_spk_name])
+                print(f"Auto-selected best-trained English speaker: {best_spk_name} (speaker_id={args.speaker_id}, {best_cnt} training clips)")
+
     model = get_model(args, configs, device, train=False)
     vocoder = get_vocoder(model_config, device)
 
