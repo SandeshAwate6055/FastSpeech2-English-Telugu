@@ -95,11 +95,24 @@ def save_variance_plots(
     x = np.arange(n)
     fig_width = max(12, n * 0.30)
 
+    from matplotlib import font_manager
+    te_font = None
+    for fp in [
+        r"C:\Windows\Fonts\Nirmala.ttc",
+        r"C:\Windows\Fonts\Nirmala.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSansTelugu-Regular.ttf",
+        "/usr/share/fonts/truetype/lohit-telugu/Lohit-Telugu.ttf",
+    ]:
+        if os.path.exists(fp):
+            te_font = font_manager.FontProperties(fname=fp, size=9)
+            break
+    lbl_kwargs = {"fontproperties": te_font, "rotation": 0} if te_font else {"rotation": 60, "fontsize": 8}
+
     # 1. Duration plot
     fig, ax = plt.subplots(figsize=(fig_width, 4.5))
     ax.bar(x, durations, color="teal", edgecolor="darkslategray", alpha=0.85)
     ax.set_xticks(x)
-    ax.set_xticklabels(tokens, rotation=60, fontsize=8)
+    ax.set_xticklabels(tokens, **lbl_kwargs)
     ax.set_ylabel("Predicted Duration (frames, 11.6 ms/frame)")
     ax.set_xlabel("Telugu Phoneme Tokens")
     ax.set_title(f"[{sample_id}] Variance Adaptor — Predicted Duration", fontsize=11)
@@ -112,7 +125,7 @@ def save_variance_plots(
     fig, ax = plt.subplots(figsize=(fig_width, 4.5))
     ax.plot(x, pitch_hz, marker="o", markersize=4, color="tomato", linewidth=1.8)
     ax.set_xticks(x)
-    ax.set_xticklabels(tokens, rotation=60, fontsize=8)
+    ax.set_xticklabels(tokens, **lbl_kwargs)
     ax.set_ylabel("Predicted Pitch F0 (Hz)")
     ax.set_xlabel("Telugu Phoneme Tokens")
     ax.set_title(f"[{sample_id}] Variance Adaptor — Predicted Pitch (F0)", fontsize=11)
@@ -125,7 +138,7 @@ def save_variance_plots(
     fig, ax = plt.subplots(figsize=(fig_width, 4.5))
     ax.plot(x, energy_val, marker="s", markersize=4, color="darkviolet", linewidth=1.8)
     ax.set_xticks(x)
-    ax.set_xticklabels(tokens, rotation=60, fontsize=8)
+    ax.set_xticklabels(tokens, **lbl_kwargs)
     ax.set_ylabel("Predicted Energy (STFT L2 Magnitude)")
     ax.set_xlabel("Telugu Phoneme Tokens")
     ax.set_title(f"[{sample_id}] Variance Adaptor — Predicted Energy", fontsize=11)
