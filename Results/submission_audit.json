@@ -1,0 +1,277 @@
+{
+  "languages": {
+    "English": {
+      "checkpoint_step": 8000,
+      "speaker_id": 14,
+      "samples": [
+        {
+          "id": "E1",
+          "audio": {
+            "sample_rate": 22050,
+            "channels": 1,
+            "sample_width": 2,
+            "samples": 128256,
+            "seconds": 5.8165986394557825
+          },
+          "sha256": "f79da925b0c56a625f09f669dc2ea9a93704b7fe99623a07d4438b8d6b94408c",
+          "checks": {
+            "raw_text_matches": true,
+            "aligned_array_lengths": true,
+            "finite_predictions": true,
+            "valid_durations": true,
+            "frame_sum_matches": true,
+            "checkpoint_matches_registry": true,
+            "speaker_matches_registry": true,
+            "audio_format": true,
+            "audio_frames_match": true,
+            "duration_plot_exists": true,
+            "pitch_plot_exists": true,
+            "energy_plot_exists": true
+          }
+        },
+        {
+          "id": "E2a",
+          "audio": {
+            "sample_rate": 22050,
+            "channels": 1,
+            "sample_width": 2,
+            "samples": 72448,
+            "seconds": 3.2856235827664397
+          },
+          "sha256": "f1f1d4b141bb38d52aaee565aea5f4dad371fefa22fb625d2ec9b951b1629677",
+          "checks": {
+            "raw_text_matches": true,
+            "aligned_array_lengths": true,
+            "finite_predictions": true,
+            "valid_durations": true,
+            "frame_sum_matches": true,
+            "checkpoint_matches_registry": true,
+            "speaker_matches_registry": true,
+            "audio_format": true,
+            "audio_frames_match": true,
+            "duration_plot_exists": true,
+            "pitch_plot_exists": true,
+            "energy_plot_exists": true
+          }
+        },
+        {
+          "id": "E2b",
+          "audio": {
+            "sample_rate": 22050,
+            "channels": 1,
+            "sample_width": 2,
+            "samples": 86272,
+            "seconds": 3.912562358276644
+          },
+          "sha256": "21a0dad090e2327c2d9372aafb4e11fc2e8b990f5db027e54a156a2889462ec7",
+          "checks": {
+            "raw_text_matches": true,
+            "aligned_array_lengths": true,
+            "finite_predictions": true,
+            "valid_durations": true,
+            "frame_sum_matches": true,
+            "checkpoint_matches_registry": true,
+            "speaker_matches_registry": true,
+            "audio_format": true,
+            "audio_frames_match": true,
+            "duration_plot_exists": true,
+            "pitch_plot_exists": true,
+            "energy_plot_exists": true
+          }
+        },
+        {
+          "id": "E3",
+          "audio": {
+            "sample_rate": 22050,
+            "channels": 1,
+            "sample_width": 2,
+            "samples": 55552,
+            "seconds": 2.5193650793650795
+          },
+          "sha256": "2de2f0ef04f823254232859fe338927611c840fa40d8d483dbd8ca784faa4a9c",
+          "checks": {
+            "raw_text_matches": true,
+            "aligned_array_lengths": true,
+            "finite_predictions": true,
+            "valid_durations": true,
+            "frame_sum_matches": true,
+            "checkpoint_matches_registry": true,
+            "speaker_matches_registry": true,
+            "audio_format": true,
+            "audio_frames_match": true,
+            "duration_plot_exists": true,
+            "pitch_plot_exists": true,
+            "energy_plot_exists": true
+          }
+        },
+        {
+          "id": "E4",
+          "audio": {
+            "sample_rate": 22050,
+            "channels": 1,
+            "sample_width": 2,
+            "samples": 143872,
+            "seconds": 6.524807256235827
+          },
+          "sha256": "f3241470bdc7c5d6605ade2efe9945865c607631a1185578837654346147bb0c",
+          "checks": {
+            "raw_text_matches": true,
+            "aligned_array_lengths": true,
+            "finite_predictions": true,
+            "valid_durations": true,
+            "frame_sum_matches": true,
+            "checkpoint_matches_registry": true,
+            "speaker_matches_registry": true,
+            "audio_format": true,
+            "audio_frames_match": true,
+            "duration_plot_exists": true,
+            "pitch_plot_exists": true,
+            "energy_plot_exists": true
+          }
+        }
+      ]
+    },
+    "Telugu": {
+      "checkpoint_step": 13000,
+      "speaker_id": 0,
+      "samples": [
+        {
+          "id": "T1",
+          "audio": {
+            "sample_rate": 22050,
+            "channels": 1,
+            "sample_width": 2,
+            "samples": 115456,
+            "seconds": 5.23609977324263
+          },
+          "sha256": "37de67185ef6ed58e136ea0753724e014e68aafea7c9a1c4ae55f764bd8bc670",
+          "checks": {
+            "raw_text_matches": true,
+            "aligned_array_lengths": true,
+            "finite_predictions": true,
+            "valid_durations": true,
+            "frame_sum_matches": true,
+            "checkpoint_matches_registry": true,
+            "speaker_matches_registry": true,
+            "audio_format": true,
+            "audio_frames_match": true,
+            "duration_plot_exists": true,
+            "pitch_plot_exists": true,
+            "energy_plot_exists": true
+          }
+        },
+        {
+          "id": "T2a",
+          "audio": {
+            "sample_rate": 22050,
+            "channels": 1,
+            "sample_width": 2,
+            "samples": 56832,
+            "seconds": 2.5774149659863945
+          },
+          "sha256": "954c957fac5db6a40da7d424f437a93315c0ac1ebe85327056cb58f2a75346df",
+          "checks": {
+            "raw_text_matches": true,
+            "aligned_array_lengths": true,
+            "finite_predictions": true,
+            "valid_durations": true,
+            "frame_sum_matches": true,
+            "checkpoint_matches_registry": true,
+            "speaker_matches_registry": true,
+            "audio_format": true,
+            "audio_frames_match": true,
+            "duration_plot_exists": true,
+            "pitch_plot_exists": true,
+            "energy_plot_exists": true
+          }
+        },
+        {
+          "id": "T2b",
+          "audio": {
+            "sample_rate": 22050,
+            "channels": 1,
+            "sample_width": 2,
+            "samples": 60416,
+            "seconds": 2.7399546485260773
+          },
+          "sha256": "f58c45a89f821f51e528fd96f7c746b9b3f940ebe3884c38895f7b10ef668780",
+          "checks": {
+            "raw_text_matches": true,
+            "aligned_array_lengths": true,
+            "finite_predictions": true,
+            "valid_durations": true,
+            "frame_sum_matches": true,
+            "checkpoint_matches_registry": true,
+            "speaker_matches_registry": true,
+            "audio_format": true,
+            "audio_frames_match": true,
+            "duration_plot_exists": true,
+            "pitch_plot_exists": true,
+            "energy_plot_exists": true
+          }
+        },
+        {
+          "id": "T3",
+          "audio": {
+            "sample_rate": 22050,
+            "channels": 1,
+            "sample_width": 2,
+            "samples": 51456,
+            "seconds": 2.3336054421768706
+          },
+          "sha256": "6b6c925d74519d97e967b3b4ad5b87711b673850e7f2a3cb28de71384a29d045",
+          "checks": {
+            "raw_text_matches": true,
+            "aligned_array_lengths": true,
+            "finite_predictions": true,
+            "valid_durations": true,
+            "frame_sum_matches": true,
+            "checkpoint_matches_registry": true,
+            "speaker_matches_registry": true,
+            "audio_format": true,
+            "audio_frames_match": true,
+            "duration_plot_exists": true,
+            "pitch_plot_exists": true,
+            "energy_plot_exists": true
+          }
+        },
+        {
+          "id": "T4",
+          "audio": {
+            "sample_rate": 22050,
+            "channels": 1,
+            "sample_width": 2,
+            "samples": 198400,
+            "seconds": 8.997732426303855
+          },
+          "sha256": "35b6f6bc55ce653a324bc80aad898a3e95f514022b45bd07a6fbb568dbf3a254",
+          "checks": {
+            "raw_text_matches": true,
+            "aligned_array_lengths": true,
+            "finite_predictions": true,
+            "valid_durations": true,
+            "frame_sum_matches": true,
+            "checkpoint_matches_registry": true,
+            "speaker_matches_registry": true,
+            "audio_format": true,
+            "audio_frames_match": true,
+            "duration_plot_exists": true,
+            "pitch_plot_exists": true,
+            "energy_plot_exists": true
+          }
+        }
+      ]
+    }
+  },
+  "errors": [],
+  "submission_blockers": [
+    "English: selected 8000-step checkpoint has no local file or download URL",
+    "English: matching inference metadata is unavailable",
+    "English: retained-hour/split evidence not included",
+    "Telugu: selected 13000-step checkpoint has no local file or download URL",
+    "Telugu: matching inference metadata is unavailable",
+    "Telugu: retained-hour/split evidence not included"
+  ],
+  "artifacts_valid": true,
+  "submission_ready": false
+}

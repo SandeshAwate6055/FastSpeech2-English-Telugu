@@ -7,6 +7,8 @@
 **/__pycache__/
 *.pyc
 .DS_Store
+Report/preview/
+Report/Technical_Report.build.pdf
 
 # Ignore local uncompressed vocoder weights and generated MFA dictionary
 **/hifigan/*.pth.tar

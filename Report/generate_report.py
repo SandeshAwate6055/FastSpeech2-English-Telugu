@@ -1,473 +1,408 @@
+import ctypes
+import csv
+import html
+import io
+import json
 import os
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-import pymupdf
+import shutil
+from pathlib import Path
+import statistics
+import struct
+import sys
 
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-REPORT_DIR = os.path.dirname(os.path.abspath(__file__))
-DIAG_PATH = os.path.join(REPORT_DIR, "_arch_diagram.png")
-PDF_PATH = os.path.join(REPORT_DIR, "Technical_Report.pdf")
+from PIL import Image as PILImage, ImageChops, ImageDraw, ImageFont, features
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.utils import ImageReader
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, Table, TableStyle, Image, Flowable
 
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tools"))
+from audit_submission import audit
 
-def build_architecture_diagram(out_png):
-    fig, ax = plt.subplots(figsize=(12, 4.8), dpi=220)
-    ax.set_xlim(0, 12)
-    ax.set_ylim(0, 4.8)
-    ax.axis("off")
-
-    def draw_box(x, y, w, h, text, bg="#E8F0FE", border="#1A73E8", fontsize=8.0, bold=True):
-        rect = patches.FancyBboxPatch(
-            (x, y), w, h,
-            boxstyle="round,pad=0.06,rounding_size=0.12",
-            facecolor=bg, edgecolor=border, linewidth=1.4
-        )
-        ax.add_patch(rect)
-        ax.text(
-            x + w / 2, y + h / 2, text,
-            ha="center", va="center", fontsize=fontsize,
-            fontweight="bold" if bold else "normal", color="#1F2937"
-        )
-
-    def draw_arrow(x1, y1, x2, y2):
-        ax.annotate(
-            "", xy=(x2, y2), xytext=(x1, y1),
-            arrowprops=dict(arrowstyle="->", color="#374151", lw=1.4)
-        )
-
-    ax.text(
-        6.0, 4.48,
-        "FastSpeech 2 End-to-End Architecture (English ARPAbet & Telugu Unicode Phoneme Frontends)",
-        ha="center", va="center", fontsize=10.5, fontweight="bold", color="#111827"
-    )
-
-    draw_box(0.2, 2.0, 1.55, 1.35, "Raw Text Input\n\nEN: CMUdict + g2p_en\n(84 ARPAbet)\nTE: Unicode Akshara\n(64 Phonemes)", bg="#FEF3C7", border="#D97706", fontsize=7.3)
-    draw_box(2.1, 2.0, 1.5, 1.35, "Phoneme Emb\n(d = 256)\n+\nPositional Enc\n+\n4x FFT Encoder", bg="#DBEAFE", border="#2563EB", fontsize=7.5)
-    draw_box(3.9, 3.6, 1.4, 0.65, "Speaker Emb\n(19 EN / 2 TE)\n(d = 256)", bg="#FCE7F3", border="#DB2777", fontsize=7.3)
-    draw_box(3.9, 2.25, 1.4, 0.85, "Encoder + Spk\nHidden States\nH_enc (L x 256)", bg="#E0E7FF", border="#4F46E5", fontsize=7.5)
-
-    draw_box(5.65, 1.15, 2.55, 2.95, "", bg="#F3F4F6", border="#4B5563")
-    ax.text(6.92, 3.9, "Variance Adaptor", ha="center", va="center", fontsize=8.5, fontweight="bold", color="#111827")
-    draw_box(5.82, 3.1, 2.2, 0.58, "Pitch Predictor (1D-CNN)\n+ 256-Bin Pitch Emb", bg="#DCFCE7", border="#16A34A", fontsize=7.1)
-    draw_box(5.82, 2.3, 2.2, 0.58, "Energy Predictor (1D-CNN)\n+ 256-Bin Energy Emb", bg="#DCFCE7", border="#16A34A", fontsize=7.1)
-    draw_box(5.82, 1.35, 2.2, 0.72, "Duration Predictor (log d)\n+ Length Regulator\n(L phones -> T mel frames)", bg="#FEF9C3", border="#CA8A04", fontsize=7.0)
-
-    draw_box(8.55, 2.0, 1.5, 1.35, "Positional Enc\n+\n6x FFT Decoder\n+\nLinear (80 Mels)\n+\n5-Conv PostNet", bg="#DBEAFE", border="#2563EB", fontsize=7.3)
-    draw_box(10.35, 2.0, 1.45, 1.35, "Universal\nHiFi-GAN\nVocoder\n\n22,050 Hz\nWaveform (.wav)", bg="#F3E8FF", border="#9333EA", fontsize=7.5)
-
-    draw_arrow(1.75, 2.67, 2.1, 2.67)
-    draw_arrow(3.6, 2.67, 3.9, 2.67)
-    draw_arrow(4.6, 3.6, 4.6, 3.1)
-    draw_arrow(5.3, 2.67, 5.65, 2.67)
-    draw_arrow(8.2, 2.67, 8.55, 2.67)
-    draw_arrow(10.05, 2.67, 10.35, 2.67)
-
-    ax.text(
-        6.0, 0.45,
-        "Multi-Task Loss: L_total = L_mel (L1) + L_postnet (L1) + L_dur (MSE in log(d+1)) + L_pitch (MSE) + L_energy (MSE)",
-        ha="center", va="center", fontsize=8.0, fontweight="bold", color="#1E3A8A",
-        bbox=dict(boxstyle="round,pad=0.28", facecolor="#EFF6FF", edgecolor="#93C5FD")
-    )
-    plt.tight_layout()
-    plt.savefig(out_png, dpi=220)
-    plt.close(fig)
+OUT = ROOT / "Report"
+WIDTH = 499
+NAVY = colors.HexColor("#102b46")
+TEAL = colors.HexColor("#008477")
+INK = colors.HexColor("#263b4d")
+PALE = colors.HexColor("#edf4f7")
+styles = getSampleStyleSheet()
+styles.add(ParagraphStyle(name="ReportBody", fontName="Helvetica", fontSize=10, leading=15, textColor=INK, spaceAfter=9))
+styles.add(ParagraphStyle(name="ReportTitle", fontName="Helvetica-Bold", fontSize=29, leading=34, textColor=NAVY, spaceAfter=18))
+styles.add(ParagraphStyle(name="ReportHeading", fontName="Helvetica-Bold", fontSize=19, leading=24, textColor=NAVY, spaceAfter=13))
+styles.add(ParagraphStyle(name="ReportSub", fontName="Helvetica-Bold", fontSize=11, leading=16, textColor=TEAL, spaceBefore=9, spaceAfter=7))
+styles.add(ParagraphStyle(name="ReportSmall", fontName="Helvetica", fontSize=8, leading=11, textColor=INK, spaceAfter=7))
+styles.add(ParagraphStyle(name="ReportCode", fontName="Courier", fontSize=8, leading=12, textColor=INK, spaceAfter=7))
+story = []
 
 
-HTML_CONTENT = """<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8"/>
-<style>
-  body {
-    font-family: "Segoe UI", "Nirmala UI", sans-serif;
-    font-size: 9.2pt;
-    line-height: 1.38;
-    color: #1F2937;
-  }
-  h1 {
-    font-size: 15.5pt;
-    color: #1E3A8A;
-    text-align: center;
-    margin-bottom: 2pt;
-  }
-  .subtitle {
-    font-size: 9.0pt;
-    color: #4B5563;
-    text-align: center;
-    margin-bottom: 10pt;
-  }
-  h2 {
-    font-size: 11.8pt;
-    color: #1E3A8A;
-    margin-top: 10pt;
-    margin-bottom: 4pt;
-  }
-  h3 {
-    font-size: 10.0pt;
-    color: #1D4ED8;
-    margin-top: 7pt;
-    margin-bottom: 3pt;
-  }
-  p {
-    margin-top: 2pt;
-    margin-bottom: 5pt;
-    text-align: justify;
-  }
-  ul, ol {
-    margin-top: 2pt;
-    margin-bottom: 5pt;
-    padding-left: 15pt;
-  }
-  li {
-    margin-bottom: 3pt;
-  }
-  code {
-    font-family: "Consolas", monospace;
-    font-size: 8.2pt;
-    background-color: #F3F4F6;
-    padding: 1pt 2pt;
-  }
-  pre {
-    font-family: "Consolas", monospace;
-    font-size: 7.8pt;
-    background-color: #F1F5F9;
-    padding: 6pt;
-    margin-top: 3pt;
-    margin-bottom: 6pt;
-    white-space: pre-wrap;
-  }
-  table {
-    page-break-inside: avoid;
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 4pt;
-    margin-bottom: 7pt;
-    font-size: 8.0pt;
-  }
-  th {
-    border-bottom: 2pt solid #1E3A8A;
-    color: #1E3A8A;
-    font-weight: bold;
-    text-align: left;
-    padding: 4pt 5pt;
-    border: 0.5pt solid #94A3B8;
-  }
-  td {
-    padding: 3.5pt 5pt;
-    border: 0.5pt solid #CBD5E1;
-    vertical-align: top;
-  }
-  .caption {
-    font-size: 8.0pt;
-    color: #4B5563;
-    text-align: center;
-    font-style: italic;
-    margin-top: 2pt;
-    margin-bottom: 7pt;
-  }
-  .te {
-    font-family: "Nirmala UI", sans-serif;
-  }
-</style>
-</head>
-<body>
-
-<h1>Implementation and Prosodic Variance Analysis of FastSpeech 2 Text-to-Speech Synthesis for English and Telugu</h1>
-<div class="subtitle">
-  <b>Technical Report</b> &bull; Reference: Ren et al. (ICLR 2021, arXiv:2006.04558v8) &amp; <code>ming024/FastSpeech2</code> &bull;
-  Public GitHub Repository: <code>https://github.com/SandeshAwate6055/FastSpeech2-English-Telugu</code>
-</div>
-
-<h2>1. Implementation Approach, Reference Architecture &amp; Language Adaptations</h2>
-
-<p><b>1.1 Mathematical Formulation &amp; Architectural Overview:</b> This project implements, trains, and evaluates two independent non-autoregressive <b>FastSpeech 2</b> Text-to-Speech (TTS) synthesis models—one for Indian English (<code>ai4bharat/Svarah</code>) and one for Telugu (<code>SPRINGLab/IndicTTS_Telugu</code>)—starting from the canonical PyTorch reference implementation <code>ming024/FastSpeech2</code> (commit <code>d4e79eb52e8b01d24703b2dfc0385544092958f3</code>) and adhering strictly to Ren et al. (ICLR 2021). Unlike autoregressive TTS architectures (e.g., Tacotron 2) that suffer from exposure bias, attention alignment collapse (word skipping/repeating), and slow sequential frame generation, FastSpeech 2 resolves the ill-posed one-to-many mapping from text to speech by conditioning the Mel-spectrogram decoder on explicit phoneme-level prosodic variance targets: <b>Duration</b> (integer frame count per phoneme), <b>Pitch (F<sub>0</sub>)</b>, and <b>Energy</b> (L2-norm of STFT magnitudes).</p>
-
-<p style="text-align:center;"><img src="Report/_arch_diagram.png" width="510"/></p>
-<div class="caption">Figure 1: Complete FastSpeech 2 System Architecture implemented for English (ARPAbet) and Telugu (Unicode Phonemes).</div>
-
-<p>Each model consists of five core neural modules: (1) a <b>4-layer Feed-Forward Transformer (FFT) Phoneme Encoder</b> (<code>d_model=256</code>, <code>n_head=2</code>, 1D-CNN FFN kernel sizes <code>[9, 1]</code> with 1,024 inner channels, dropout 0.2); (2) a <b>Multi-Speaker Embedding Table</b> (<code>nn.Embedding(n_speaker, 256)</code>) added directly to the encoder states so that downstream prosody predictors are explicitly speaker-conditioned; (3) a <b>Variance Adaptor</b> containing three 2-layer 1D-CNN predictors (256 channels, kernel size 3, LayerNorm, ReLU, dropout 0.5)—where the <i>Duration Predictor</i> predicts log-durations <code>log(d + 1)</code>, the <i>Length Regulator</i> expands phoneme hidden states <code>L</code> to mel-frame length <code>T = sum(d_i)</code>, and the <i>Pitch</i> and <i>Energy Predictors</i> predict Z-score normalized phoneme-averaged values projected through 256-bin quantized embedding tables; (4) a <b>6-layer FFT Mel-Spectrogram Decoder</b>; and (5) a <b>5-layer Conv1D Residual PostNet</b> (512 channels, kernel size 5, BatchNorm, tanh). Waveform synthesis uses the pretrained <b>Universal HiFi-GAN vocoder</b> (<code>generator_universal.pth.tar</code>, 22,050 Hz, hop length 256).</p>
-
-<h3>1.2 Reused vs. Modified vs. Newly Implemented Components</h3>
-<table>
-  <tr>
-    <th width="26%">Module / File Path</th>
-    <th width="18%">Adaptation Status</th>
-    <th width="56%">Technical Details &amp; Language-Specific Modifications</th>
-  </tr>
-  <tr>
-    <td><code>transformer/*</code>, <code>model/fastspeech2.py</code>, <code>model/modules.py</code>, <code>model/loss.py</code>, <code>model/optimizer.py</code></td>
-    <td><b>Reused (100% Unmodified)</b></td>
-    <td>Retained exact FFT blocks, Variance Adaptor, Length Regulator, 5-term <code>FastSpeech2Loss</code> (L1 Mel + L1 PostNet + MSE Duration/Pitch/Energy), and Vaswani 4,000-warmup <code>ScheduledOptim</code> from <code>ming024/FastSpeech2</code>.</td>
-  </tr>
-  <tr>
-    <td><code>English/text/*</code> &amp; <code>English/inference.py</code></td>
-    <td><b>Adapted for Indian English</b></td>
-    <td>Integrated CMU Pronouncing Dictionary (84 ARPAbet symbols) with neural <code>g2p_en</code> fallback for out-of-vocabulary words (<code>antidisestablishmentarianism</code>, <code>andaroo</code>, <code>rhyth</code>). Added regex expanders for 12-hour clock times (<code>10:45 AM</code>), dates, and four-digit years (<code>2026</code> &rarr; <code>twenty twenty-six</code>).</td>
-  </tr>
-  <tr>
-    <td><code>Telugu/text/*</code> &amp; <code>Telugu/inference.py</code></td>
-    <td><b>Newly Built for Telugu</b></td>
-    <td>Replaced English/Mandarin G2P with a deterministic 64-symbol Telugu Unicode (<code>U+0C00–U+0C7F</code>) akshara-to-phoneme finite-state transducer. Injects inherent vowel schwa (<code>అ</code>) after bare consonants, strips Virama/Pollu (<code>్</code>, <code>U+0C4D</code>) to form pure consonant clusters/geminates, maps dependent vowel matras (Gunintalu) to independent vowel phonemes, and expands Telugu numbers/ordinals/times (<code>2026</code>, <code>12వ</code>, <code>10:45</code>).</td>
-  </tr>
-  <tr>
-    <td><code>preprocessor/preprocessor.py</code> (Both Languages)</td>
-    <td><b>Critically Fixed for MFA 2.2.17</b></td>
-    <td>Set <code>include_empty_intervals=True</code> in <code>tgt.io.read_textgrid()</code> so MFA 2.2.17 interior word pauses (<code>""</code>) are preserved as <code>"sp"</code> tokens instead of being silently dropped. Added strict pre-slice timeline checks (<code>|raw_frames - sum(d)| &lt;= 2</code>) and train-only <code>stats.json</code> normalization.</td>
-  </tr>
-</table>
-
-<p><b>1.3 Critical MFA 2.2.17 Pause Alignment Discovery &amp; Fix:</b> In <code>ming024/FastSpeech2</code> (written for MFA 1.x), <code>tgt.io.read_textgrid(tg_path)</code> uses the default <code>include_empty_intervals=False</code>. Because MFA 2.2.17 labels interior inter-word pauses as empty strings (<code>""</code>) rather than <code>"sp"</code>, <code>include_empty_intervals=False</code> silently deletes every pause between words while still slicing the mel spectrogram from the start of the first word to the end of the last word—shifting every subsequent phoneme onto the wrong audio frames! Enforcing <code>include_empty_intervals=True</code>, mapping interior empty intervals to <code>"sp"</code>, and verifying <code>|raw_total_frames - sum(durations)| &lt;= 2</code> prior to slicing guarantees 1-to-1 phoneme-to-frame synchronization.</p>
-
-<h2>2. Dataset Selection, Subsampling, Preprocessing &amp; Training Configuration</h2>
-
-<p>Both datasets were streamed from HuggingFace in <code>prepare_data.py</code> and subsampled deterministically (<code>seed=42</code>) to extract <b>~5.0 hours of training audio</b> and <b>~1.0 hour of validation audio</b> with strictly disjoint utterances (zero overlap):</p>
-
-<table>
-  <tr>
-    <th width="25%">Configuration Parameter</th>
-    <th width="37.5%">English Model (ai4bharat/Svarah)</th>
-    <th width="37.5%">Telugu Model (SPRINGLab/IndicTTS_Telugu)</th>
-  </tr>
-  <tr>
-    <td><b>Subsampling &amp; Speaker Filtering</b></td>
-    <td>Top 19 Indian-English speakers (&ge;15 min/speaker) to ensure robust speaker embeddings; durations 1.5s–12.0s; multiline transcripts sanitized.</td>
-    <td>All 2 studio speakers (1 native female, 1 native male); clip durations 1.5s–15.0s; valid Telugu Unicode transcripts.</td>
-  </tr>
-  <tr>
-    <td><b>Train / Validation Split</b></td>
-    <td><b>Train:</b> 2,649 clips (5.00 hrs) | <b>Val:</b> 525 clips (1.00 hr)<br/><b>Overlap:</b> 0 shared IDs / 0 shared SHA-1 hashes.</td>
-    <td><b>Train:</b> 2,193 clips (5.00 hrs) | <b>Val:</b> 444 clips (1.00 hr)<br/><b>Overlap:</b> 0 shared IDs / 0 shared SHA-1 hashes.</td>
-  </tr>
-  <tr>
-    <td><b>Audio &amp; STFT Frontend</b></td>
-    <td>22,050 Hz, 1024-pt FFT, 256 hop (11.61 ms/frame), 1024 win, Hann window, 80 Mel bins (0–8,000 Hz).</td>
-    <td>22,050 Hz, 1024-pt FFT, 256 hop (11.61 ms/frame), 1024 win, Hann window, 80 Mel bins (0–8,000 Hz).</td>
-  </tr>
-  <tr>
-    <td><b>Forced Alignment (MFA 2.2.17)</b></td>
-    <td>Pretrained <code>english_us_arpa</code> acoustic model + custom CMUdict/<code>g2p_en</code> lexicon covering all Svarah words.</td>
-    <td>Acoustic model trained from scratch (<code>mfa train</code>) on the 2,637 Telugu utterances using our 64-phoneme lexicon.</td>
-  </tr>
-  <tr>
-    <td><b>Pitch &amp; Energy Extraction</b></td>
-    <td>PyWorld DIO + StoneMask F<sub>0</sub> with linear interpolation over unvoiced gaps; phoneme-averaged; Train-only Z-score normalized.</td>
-    <td>PyWorld DIO + StoneMask F<sub>0</sub> with linear interpolation over unvoiced gaps; phoneme-averaged; Train-only Z-score normalized.</td>
-  </tr>
-  <tr>
-    <td><b>Training Hyperparameters</b></td>
-    <td>60,000 steps, batch size 16, Adam (<code>&beta;1=0.9, &beta;2=0.98, &epsilon;=1e-9</code>), 4,000 warmup steps, grad clip 1.0, <code>save_step=5000</code>.</td>
-    <td>60,000 steps, batch size 16, Adam (<code>&beta;1=0.9, &beta;2=0.98, &epsilon;=1e-9</code>), 4,000 warmup steps, grad clip 1.0, <code>save_step=5000</code>.</td>
-  </tr>
-</table>
-
-<h2>3. Training &amp; Validation Loss Curve Analysis</h2>
-
-<p>Both models were trained for <b>60,000 steps</b> on an NVIDIA Tesla T4 GPU. Table 3 summarizes the exact training and validation loss metrics logged in <code>English/logs/</code> and <code>Telugu/logs/</code>:</p>
-
-<table>
-  <tr>
-    <th>Model &amp; Split</th>
-    <th>Step</th>
-    <th>Total Loss</th>
-    <th>Mel MAE</th>
-    <th>PostNet MAE</th>
-    <th>Pitch MSE</th>
-    <th>Energy MSE</th>
-    <th>Duration MSE</th>
-  </tr>
-  <tr><td><b>English (Train)</b></td><td>100</td><td>9.5892</td><td>3.4841</td><td>2.6863</td><td>1.1178</td><td>1.6051</td><td>0.6959</td></tr>
-  <tr><td><b>English (Train)</b></td><td>10,000</td><td>1.4943</td><td>0.6208</td><td>0.6206</td><td>0.1043</td><td>0.0801</td><td>0.0685</td></tr>
-  <tr><td><b>English (Train)</b></td><td>30,000</td><td>0.9928</td><td>0.4574</td><td>0.4569</td><td>0.0243</td><td>0.0299</td><td>0.0243</td></tr>
-  <tr><td><b>English (Train)</b></td><td>60,000</td><td><b>0.9216</b></td><td><b>0.4331</b></td><td><b>0.4326</b></td><td><b>0.0259</b></td><td><b>0.0168</b></td><td><b>0.0131</b></td></tr>
-  <tr><td><b>English (Val)</b></td><td>1,000</td><td>2.9111</td><td>0.8495</td><td>0.9103</td><td>0.4710</td><td>0.4233</td><td>0.2570</td></tr>
-  <tr><td><b>English (Val)</b></td><td>10,000</td><td>2.7355</td><td>0.7601</td><td>0.7599</td><td>0.4892</td><td>0.4366</td><td>0.2897</td></tr>
-  <tr><td><b>English (Val)</b></td><td>60,000</td><td><b>2.7353</b></td><td><b>0.7709</b></td><td><b>0.7706</b></td><td><b>0.4820</b></td><td><b>0.4299</b></td><td><b>0.2820</b></td></tr>
-  <tr><td><b>Telugu (Train)</b></td><td>100</td><td>10.4081</td><td>4.2251</td><td>3.5288</td><td>1.0831</td><td>1.1258</td><td>0.4454</td></tr>
-  <tr><td><b>Telugu (Train)</b></td><td>10,000</td><td>0.9728</td><td>0.4290</td><td>0.4289</td><td>0.0501</td><td>0.0417</td><td>0.0232</td></tr>
-  <tr><td><b>Telugu (Train)</b></td><td>30,000</td><td>0.7656</td><td>0.3580</td><td>0.3576</td><td>0.0223</td><td>0.0188</td><td>0.0089</td></tr>
-  <tr><td><b>Telugu (Train)</b></td><td>60,000</td><td><b>0.6627</b></td><td><b>0.3153</b></td><td><b>0.3150</b></td><td><b>0.0152</b></td><td><b>0.0126</b></td><td><b>0.0045</b></td></tr>
-  <tr><td><b>Telugu (Val)</b></td><td>1,000</td><td>2.4060</td><td>0.7439</td><td>0.8161</td><td>0.5500</td><td>0.2292</td><td>0.0667</td></tr>
-  <tr><td><b>Telugu (Val)</b></td><td>10,000</td><td>1.9848</td><td>0.5928</td><td>0.5926</td><td>0.5269</td><td>0.2139</td><td>0.0585</td></tr>
-  <tr><td><b>Telugu (Val)</b></td><td>60,000</td><td><b>1.9794</b></td><td><b>0.5968</b></td><td><b>0.5966</b></td><td><b>0.5168</b></td><td><b>0.2089</b></td><td><b>0.0603</b></td></tr>
-</table>
-
-<p><b>Convergence &amp; Generalization Observations:</b> (1) Both models exhibit smooth, monotonic training convergence across all 5 loss components without any gradient spikes or instabilities. (2) Telugu converges to significantly lower spectral and prosodic errors than English (Val PostNet Mel MAE <code>0.5966</code> vs. <code>0.7706</code>; Val Duration MSE <code>0.0603</code> vs. <code>0.2820</code>) due to the 1-to-1 phonetic transparency of the Telugu script and the clean studio acoustics of <code>IndicTTS_Telugu</code> (2 speakers) compared to the 19 multi-accent speakers of <code>Svarah</code>. (3) Validation Mel MAE plateaus around Steps 8,000–13,000 and remains rock-steady through Step 60,000 without spectral overfitting.</p>
-
-<p style="text-align:center;">
-  <img src="Results/English/training_loss.png" width="245"/>
-  <img src="Results/English/validation_loss.png" width="245"/>
-</p>
-<div class="caption">Figure 2: English (ai4bharat/Svarah) Training Loss (left) and Validation Loss (right) across 60,000 Steps.</div>
-
-<p style="text-align:center;">
-  <img src="Results/Telugu/training_loss.png" width="245"/>
-  <img src="Results/Telugu/validation_loss.png" width="245"/>
-</p>
-<div class="caption">Figure 3: Telugu (SPRINGLab/IndicTTS_Telugu) Training Loss (left) and Validation Loss (right) across 60,000 Steps.</div>
-
-<h2>4. Speech Quality &amp; Variance Adaptor Analysis on All 10 Test Sentences</h2>
-
-<p>All 10 test sentences (<code>E1–E4</code> and <code>T1–T4</code>) were synthesized with untouched input text (preserving double spaces and Telugu matras). Table 4 summarizes the quantitative predictions from <code>variance_predictions_summary.json</code>:</p>
-
-<table>
-  <tr>
-    <th>ID</th>
-    <th>Tokens</th>
-    <th>Frames</th>
-    <th>Audio Dur</th>
-    <th>Mean Dur (Max)</th>
-    <th>F<sub>0</sub> Mean [Range] Hz</th>
-    <th>Energy Mean [Range]</th>
-    <th>Primary Linguistic &amp; Prosodic Challenge</th>
-  </tr>
-  <tr><td><b>E1</b></td><td>85</td><td>501</td><td>5.82 s</td><td>5.89f (17f)</td><td>134.7 [93.1, 174.4]</td><td>77.9 [13.9, 149.0]</td><td>28-letter OOV compound (<i>antidisestablishmentarianism</i>) via <code>g2p_en</code></td></tr>
-  <tr><td><b>E2a</b></td><td>50</td><td>283</td><td>3.29 s</td><td>5.66f (14f)</td><td>128.4 [109.1, 189.2]</td><td>68.4 [7.2, 138.1]</td><td>Homograph <i>conduct</i> (noun context after possessive <i>orchestra's</i>)</td></tr>
-  <tr><td><b>E2b</b></td><td>56</td><td>337</td><td>3.91 s</td><td>6.02f (13f)</td><td>134.8 [112.9, 178.3]</td><td>67.3 [9.4, 121.1]</td><td>Homograph <i>conduct</i> (verb context after modal verb <i>will</i>)</td></tr>
-  <tr><td><b>E3</b></td><td>37</td><td>217</td><td>2.52 s</td><td>5.86f (15f)</td><td>122.9 [108.7, 143.4]</td><td>52.7 [6.4, 113.0]</td><td>Word-internal double space (<code>rhyth  m</code> &rarr; <code>rhyth</code> + <code>m</code>)</td></tr>
-  <tr><td><b>E4</b></td><td>80</td><td>562</td><td>6.52 s</td><td>7.03f (40f)</td><td>135.1 [114.8, 196.4]</td><td>68.4 [5.2, 139.5]</td><td>Time/Date expansion, comma pause (<code>sp</code> = 40f), Telugu word <i>andaroo</i></td></tr>
-  <tr><td><b>T1</b></td><td>66</td><td>451</td><td>5.24 s</td><td>6.83f (16f)</td><td>209.3 [155.4, 321.9]</td><td>58.8 [8.2, 140.6]</td><td>10-akshara scientific loanword (<span class="te">న్యూరోఫార్మకోలాజికల్</span>) &amp; diphthong <span class="te">ఔ</span></td></tr>
-  <tr><td><b>T2a</b></td><td>31</td><td>222</td><td>2.58 s</td><td>7.16f (15f)</td><td>221.3 [153.5, 329.2]</td><td>59.7 [4.1, 130.2]</td><td>Homograph <span class="te">పట్టు</span> (grip/hold) with geminate retroflex <span class="te">ట్ట</span> (3f+9f)</td></tr>
-  <tr><td><b>T2b</b></td><td>37</td><td>236</td><td>2.74 s</td><td>6.38f (16f)</td><td>213.0 [158.5, 307.5]</td><td>55.0 [5.7, 133.1]</td><td>Homograph <span class="te">పట్టు</span> (silk) in pre-nominal modifier context <span class="te">పట్టు చీరను</span></td></tr>
-  <tr><td><b>T3</b></td><td>31</td><td>201</td><td>2.33 s</td><td>6.48f (16f)</td><td>214.3 [155.9, 334.3]</td><td>63.4 [5.6, 115.5]</td><td>Double-space split (<span class="te">అడ  విలో</span>) &amp; geminate sibilant <span class="te">నిశ్శబ్దంగా</span> (11f+10f)</td></tr>
-  <tr><td><b>T4</b></td><td>120</td><td>775</td><td>9.00 s</td><td>6.46f (52f)</td><td>213.9 [160.1, 289.3]</td><td>56.9 [1.4, 114.5]</td><td>Telugu year/ordinal/time expansion &amp; 52-frame (0.60 s) comma pause</td></tr>
-</table>
-
-<h3>4.1 Sentence-by-Sentence Analysis of English Test Samples (E1–E4)</h3>
-<ul>
-  <li><b>E1 (Polysyllabic Morphological Stress Test):</b> <i>"The antidisestablishmentarianism movement gained considerable momentum during the parliamentary proceedings."</i> Because the 28-letter, 12-syllable word <code>antidisestablishmentarianism</code> is OOV in CMUdict, neural <code>g2p_en</code> converts it into 26 ARPAbet phonemes (<code>AE2 N T AY0 D IH0 S AH0 S T AE2 B L IH0 SH M AH0 N T EH1 R IY0 AH0 N IH2 Z AH0 M</code>). The synthesized audio (5.82 s) is completely intelligible without slurring or syllable dropping. The Duration Predictor assigns longer frames to stressed vowels and fricatives (<code>SH</code> = 12 frames, clause-final <code>Z</code> = 17 frames), while Energy oscillates cleanly between vocalic nuclei (100–149) and voiceless stops (<code>T</code> = 15.9).</li>
-  <li><b>E2a vs. E2b (Lexical Homograph "conduct"):</b> In <b>E2a</b> (<i>"The orchestra's conduct during the ceremony..."</i>, noun /ˈkɑːndʌkt/) and <b>E2b</b> (<i>"The researchers will conduct an experiment..."</i>, verb /kənˈdʌkt/), static dictionary lookup outputs <code>K AA1 N D AH0 K T</code> for both. However, the self-attention encoder conditions on surrounding context, yielding distinct prosodic trajectories: in E2a, <i>conduct</i> immediately follows the high-pitch possessive focus peak on <i>orchestra's</i> (189.2 Hz) and exhibits a steep falling F<sub>0</sub> contour (<code>K</code> 184.3 Hz &rarr; <code>AA1</code> 147.9 Hz &rarr; <code>N</code> 128.4 Hz, word duration 40 frames = 464 ms). In E2b, following the modal verb <i>will</i>, <i>conduct</i> is lengthened to 49 frames (569 ms: <code>K</code>=13f, <code>AA1</code>=8f, <code>N</code>=12f, <code>AH0</code>=8f) with a flatter verbal phrase pitch contour (158.0 Hz &rarr; 139.8 Hz &rarr; 133.0 Hz).</li>
-  <li><b>E3 (Double-Space Perturbation "rhyth  m"):</b> <i>"The rhyth  m of the orchestra changed unexpectedly."</i> Preserving the exact input text splits <code>rhyth  m</code> into two space-separated tokens: OOV <code>rhyth</code> (<code>R AY1 DH</code>) and single-letter <code>m</code> (<code>EH1 M</code>). The model allocates 12 frames (139 ms) and peak energy (113.0) to diphthong <code>AY1</code>, followed by 5 frames each for <code>DH</code>, <code>EH1</code>, and <code>M</code>, audibly articulating <i>"rhy-th em"</i> before smoothly completing the rest of the sentence.</li>
-  <li><b>E4 (Numerics, Time, Date, Comma Pause &amp; Telugu Code-Switching):</b> <i>"The meeting will start at 10:45 AM on 12 November 2026, so andaroo should arrive on time."</i> Our normalizer expands <code>10:45 AM</code> &rarr; <code>ten forty five a m</code> and <code>2026</code> &rarr; <code>twenty twenty-six</code>, maps the comma to an explicit <code>sp</code> pause token, and transliterates the romanized Telugu word <code>andaroo</code> ("everyone") via G2P into <code>AE0 N D AA1 R UW0</code>. Crucially, the Duration Predictor predicts <b>40 frames (0.46 seconds)</b> and near-zero energy (5.2) for the comma <code>sp</code> token, creating a natural respiratory pause between clauses.</li>
-</ul>
-
-<p style="text-align:center;"><img src="Results/English/variance_adaptor_plots/duration/E1_duration.png" width="495"/></p>
-<div class="caption">Figure 4: [E1] English Predicted Duration across 85 ARPAbet Phonemes.</div>
-
-<p style="text-align:center;">
-  <img src="Results/English/variance_adaptor_plots/pitch/E2a_pitch.png" width="245"/>
-  <img src="Results/English/variance_adaptor_plots/pitch/E2b_pitch.png" width="245"/>
-</p>
-<div class="caption">Figure 5: English Pitch (F0) Contours for Homograph "conduct" — [E2a] Noun Context (left) vs. [E2b] Verb Context (right).</div>
-
-<p style="text-align:center;">
-  <img src="Results/English/variance_adaptor_plots/duration/E3_duration.png" width="245"/>
-  <img src="Results/English/variance_adaptor_plots/energy/E4_energy.png" width="245"/>
-</p>
-<div class="caption">Figure 6: [E3] Duration for Double-Space "rhyth  m" (left) and [E4] Energy Showing Comma Pause Dip "sp" (right).</div>
-
-<h3>4.2 Sentence-by-Sentence Analysis of Telugu Test Samples (T1–T4)</h3>
-<ul>
-  <li><b>T1 (Agglutinative Scientific Loanword):</b> <span class="te">"న్యూరోఫార్మకోలాజికల్ పరిశోధనలో నూతన ఔషధాల ప్రభావాన్ని విశ్లేషించారు."</span> The 10-akshara English loanword is decomposed into 19 Telugu phonemes. The generated speech (5.24 s) is crystal clear and natural. Long vowels (<span class="te">ఊ</span>=11f, <span class="te">ఓ</span>=10–11f, <span class="te">ఆ</span>=11–12f) receive 2.5&times;–3.5&times; the duration of short vowels (<span class="te">అ</span>=3–5f) and alveolar flaps (<span class="te">ర</span>=2–3f), demonstrating accurate Telugu phonemic vowel-length modeling.</li>
-  <li><b>T2a vs. T2b (Telugu Homograph <span class="te">పట్టు</span> — "Grip" vs. "Silk"):</b> In <b>T2a</b> (<span class="te">"తాడుపై అతని పట్టు చాలా బలంగా ఉంది."</span>, noun "grip/hold") and <b>T2b</b> (<span class="te">"ఆమె పట్టు చీరను ధరించి వేడుకకు వచ్చింది."</span>, noun adjunct "silk"), <span class="te">పట్టు</span> decomposes into <code>[ప, అ, ట, ట, ఉ]</code>. In both utterances, the geminate retroflex stop <span class="te">ట్ట</span> displays a realistic closure-hold-release pattern: the first <span class="te">ట</span> spans 3 frames (energy 28.8 / 35.0) and the second <span class="te">ట</span> holds for 9 frames with near-zero energy (4.07 in T2a, 5.65 in T2b) before releasing into <span class="te">ఉ</span>. Contextually, T2b assigns a higher F<sub>0</sub> peak on <span class="te">పట్టు</span> (307.5 Hz vs. 261.5 Hz in T2a) because it appears in sentence-initial modifier position (<span class="te">పట్టు చీరను</span>).</li>
-  <li><b>T3 (Double-Space Split <span class="te">అడ  విలో</span> &amp; Geminate Sibilant <span class="te">నిశ్శబ్దంగా</span>):</b> <span class="te">"పులి అడ  విలో నిశ్శబ్దంగా నడిచింది."</span> Because our Telugu phoneme parser strips spaces while decomposing aksharas into consonant-vowel sequences, the internal double space in <span class="te">అడ  విలో</span> preserves the exact phoneme sequence (<code>అ డ అ వ ఇ ల ఓ</code>), synthesizing fluidly as <i>"puli adavilo"</i>. In <span class="te">నిశ్శబ్దంగా</span>, the geminate palatal sibilant <span class="te">శ్శ</span> receives 11 + 10 = 21 frames (244 ms) with low fricative energy (14.0 and 11.1), rendering a natural geminate sibilant.</li>
-  <li><b>T4 (Dates, Ordinals, Clock Time &amp; Clause-Boundary Pause):</b> <span class="te">"ఈ సమావేశం 2026 నవంబర్ 12వ తేదీ ఉదయం 10:45 గంటలకు ప్రారంభమవుతుంది, సమయానికి సిద్ధంగా ఉంచండి."</span> Our Telugu number expander converts <code>2026</code> &rarr; <span class="te">రెండు వేల ఇరవై ఆరు</span>, <code>12వ</code> &rarr; <span class="te">పన్నెండవ</span>, and <code>10:45</code> &rarr; <span class="te">పది నలభై ఐదు</span> (120 tokens, 9.00 s). At the comma after <span class="te">ప్రారంభమవుతుంది</span>, the Duration Predictor allocates <b>52 frames (0.60 s)</b> with energy dropping to 1.4, producing a natural prosodic break before the final imperative clause.</li>
-</ul>
-
-<p style="text-align:center;"><img src="Results/Telugu/variance_adaptor_plots/duration/T1_duration.png" width="495"/></p>
-<div class="caption">Figure 7: [T1] Telugu Predicted Duration Showing Clear Short vs. Long Vowel Contrast.</div>
-
-<p style="text-align:center;">
-  <img src="Results/Telugu/variance_adaptor_plots/pitch/T2a_pitch.png" width="245"/>
-  <img src="Results/Telugu/variance_adaptor_plots/pitch/T2b_pitch.png" width="245"/>
-</p>
-<div class="caption">Figure 8: Telugu Pitch (F0) Contours for Homograph "పట్టు" — [T2a] Grip Context (left) vs. [T2b] Silk Context (right).</div>
-
-<p style="text-align:center;">
-  <img src="Results/Telugu/variance_adaptor_plots/duration/T3_duration.png" width="245"/>
-  <img src="Results/Telugu/variance_adaptor_plots/energy/T4_energy.png" width="245"/>
-</p>
-<div class="caption">Figure 9: [T3] Telugu Duration for Double-Space "అడ  విలో" (left) and [T4] Energy Showing 52-Frame Comma Pause Dip (right).</div>
-
-<h2>5. Comparative Observations (English vs. Telugu), Limitations &amp; Future Work</h2>
-
-<table>
-  <tr>
-    <th width="24%">Dimension</th>
-    <th width="38%">English FastSpeech 2 (Svarah)</th>
-    <th width="38%">Telugu FastSpeech 2 (IndicTTS_Telugu)</th>
-  </tr>
-  <tr>
-    <td><b>G2P &amp; Script Transparency</b></td>
-    <td>Deep/irregular orthography; relies on 134k CMUdict + neural <code>g2p_en</code> fallback; static lookup cannot disambiguate POS homographs (<i>conduct</i>).</td>
-    <td>Transparent abugida script; deterministic 64-phoneme Unicode transducer achieves 100% phoneme accuracy without neural G2P models.</td>
-  </tr>
-  <tr>
-    <td><b>Spectral Convergence &amp; Acoustic Cleanliness</b></td>
-    <td>Val Mel MAE = <code>0.7706</code>; 19 speakers with diverse regional Indian accents and room acoustics introduce higher spectral variance.</td>
-    <td>Val Mel MAE = <code>0.5966</code>; 2 studio speakers yield cleaner harmonic structure, crisper formants, and 4.6&times; lower duration MSE.</td>
-  </tr>
-  <tr>
-    <td><b>Prosodic Profile &amp; Perturbation Robustness</b></td>
-    <td>Male speaker (ID 14, mean F<sub>0</sub> ~131 Hz); word-internal space (<code>rhyth  m</code>) splits word into two G2P lookups (<i>"rhy-th em"</i>).</td>
-    <td>Female speaker (ID 0, mean F<sub>0</sub> ~214 Hz); akshara decomposition preserves phonetic continuity across <span class="te">అడ  విలో</span>.</td>
-  </tr>
-</table>
-
-<p><b>Limitations &amp; Concrete Improvements:</b> (1) <i>POS-Aware Homograph G2P:</i> Adding a lightweight part-of-speech tagger (or contextual BERT/ByT5 grapheme frontend) prior to CMUdict lookup will disambiguate noun <code>K AA1 N D AH0 K T</code> from verb <code>K AH0 N D AH1 K T</code> in E2a/E2b. (2) <i>Continuous Wavelet Transform (CWT) Pitch Modeling:</i> Predicting F<sub>0</sub> in the CWT spectrogram domain (Ren et al., Section 3.2.2) will capture richer micro-prosodic inflection on homographs like <span class="te">పట్టు</span>. (3) <i>Vocoder Fine-Tuning:</i> Fine-tuning HiFi-GAN on FastSpeech 2 predicted mels from Svarah speakers will further enhance multi-speaker phase coherence.</p>
-
-<h2>6. Reproducibility Details, Dependencies &amp; Execution Commands</h2>
-
-<p><b>Software Environment (<code>requirements.txt</code>):</b> Python 3.10+, PyTorch 2.0+ (CUDA), <code>torchaudio</code>, <code>librosa==0.10.2.post1</code>, <code>scipy</code>, <code>numpy</code>, <code>pyworld==0.3.4</code>, <code>tgt==1.4.4</code>, <code>g2p-en==2.1.0</code>, <code>num2words==0.5.13</code>, <code>datasets</code>, <code>matplotlib</code>, <code>PyYAML</code>, and <code>montreal-forced-aligner==2.2.17</code> (with <code>MPLBACKEND=Agg</code>).</p>
-
-<pre>
-# 1. English Pipeline (Data Prep -> MFA Alignment -> Preprocess -> Train -> Inference)
-cd English &amp;&amp; python prepare_data.py --data_dir ./raw_data --train_hours 5.0 --val_hours 1.0 --seed 42
-mfa model download acoustic english_us_arpa &amp;&amp; mfa align ./raw_data/mfa_corpus ./lexicon/svarah_mfa_dict.txt english_us_arpa ./preprocessed_data/TextGrid --clean
-python preprocess.py config.yaml &amp;&amp; python train.py --config config.yaml --total_step 60000
-python inference.py --config config.yaml --result_path ../Results/English
-
-# 2. Telugu Pipeline (Data Prep -> MFA Train+Align -> Preprocess -> Train -> Inference)
-cd ../Telugu &amp;&amp; python prepare_data.py --data_dir ./raw_data --train_hours 5.0 --val_hours 1.0 --seed 42
-mfa train ./raw_data/mfa_corpus ./lexicon/telugu_mfa_dict.txt ./preprocessed_data/mfa_model.zip --output_directory ./preprocessed_data/TextGrid --clean
-python preprocess.py config.yaml &amp;&amp; python train.py --config config.yaml --total_step 60000
-python inference.py --config config.yaml --result_path ../Results/Telugu
-</pre>
-
-</body>
-</html>
-"""
+def para(text, style="ReportBody"):
+    return Paragraph(text, styles[style])
 
 
-def render_pdf():
-    build_architecture_diagram(DIAG_PATH)
-    tmp_pdf = PDF_PATH + ".tmp"
-    story = pymupdf.Story(html=HTML_CONTENT, archive=PROJECT_ROOT)
-    writer = pymupdf.DocumentWriter(tmp_pdf)
-    mediabox = pymupdf.paper_rect("a4")
-    where = mediabox + (32, 32, -32, -36)
+def add(text, style="ReportBody"):
+    story.append(para(text, style))
 
-    more = 1
-    while more:
-        device = writer.begin_page(mediabox)
-        more, _ = story.place(where)
-        story.draw(device)
-        writer.end_page()
-    writer.close()
 
-    doc = pymupdf.open(tmp_pdf)
-    total_pages = len(doc)
-    for i, page in enumerate(doc):
-        footer_text = f"FastSpeech 2 Text-to-Speech Synthesis (English & Telugu) — Technical Report | Page {i+1} of {total_pages}"
-        page.insert_text(
-            (32, mediabox.height - 16),
-            footer_text,
-            fontsize=8,
-            color=(0.35, 0.35, 0.35),
-        )
-    doc.subset_fonts()
-    doc.save(PDF_PATH, garbage=4, deflate=True, deflate_images=True, deflate_fonts=True)
-    doc.close()
-    del writer
-    try:
-        if os.path.exists(tmp_pdf):
-            os.remove(tmp_pdf)
-    except OSError:
-        pass
-    if os.path.exists(DIAG_PATH):
-        os.remove(DIAG_PATH)
-    print(f"Successfully generated {PDF_PATH} ({total_pages} pages, {os.path.getsize(PDF_PATH)/1024:.1f} KB)")
+def table(rows, widths=None):
+    wrapped = [[para(html.escape(str(cell)), "ReportSmall") for cell in row] for row in rows]
+    item = Table(wrapped, colWidths=widths, repeatRows=1, hAlign="LEFT")
+    item.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), PALE),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 7),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+        ("LINEBELOW", (0, 0), (-1, 0), 0.8, TEAL),
+        ("LINEBELOW", (0, 1), (-1, -1), 0.3, colors.HexColor("#d6e0e5")),
+    ]))
+    story.extend([item, Spacer(1, 10)])
+
+
+def section(number, title):
+    if story:
+        story.append(PageBreak())
+    add(f"{number}  /  {title}", "ReportHeading")
+
+
+class Workflow(Flowable):
+    def __init__(self, labels, height=230):
+        super().__init__()
+        self.labels = labels
+        self.width = WIDTH
+        self.height = height
+
+    def draw(self):
+        canvas = self.canv
+        spacing = self.height / len(self.labels)
+        for index, (title, detail) in enumerate(self.labels):
+            y = self.height - (index + 1) * spacing + 7
+            canvas.setFillColor(PALE)
+            canvas.setStrokeColor(TEAL)
+            canvas.roundRect(18, y, WIDTH - 36, spacing - 12, 5, fill=1)
+            canvas.setFillColor(NAVY)
+            canvas.setFont("Helvetica-Bold", 10)
+            canvas.drawString(30, y + spacing - 27, title)
+            canvas.setFont("Helvetica", 8)
+            canvas.drawString(30, y + 9, detail)
+            if index < len(self.labels) - 1:
+                canvas.setStrokeColor(TEAL)
+                canvas.line(WIDTH / 2, y - 2, WIDTH / 2, y - 9)
+                canvas.line(WIDTH / 2, y - 9, WIDTH / 2 - 3, y - 6)
+                canvas.line(WIDTH / 2, y - 9, WIDTH / 2 + 3, y - 6)
+
+
+class Prosody(Flowable):
+    def __init__(self, row):
+        super().__init__()
+        self.row = row
+        self.width = WIDTH
+        self.height = 279
+
+    def draw(self):
+        canvas = self.canv
+        count = len(self.row["tokens"])
+        for index, (field, title, tone) in enumerate([
+            ("durations_frames", "Duration / mel frames", TEAL),
+            ("pitch_hz", "Predicted continuous F0 / Hz", colors.HexColor("#b35a35")),
+            ("energy", "Predicted energy / STFT-magnitude units", NAVY),
+        ]):
+            values = self.row[field]
+            low = 0 if field != "pitch_hz" else min(values) * 0.9
+            high = max(values) * 1.1 or 1
+            base = 205 - index * 91
+            canvas.setFillColor(INK)
+            canvas.setFont("Helvetica-Bold", 8)
+            canvas.drawString(0, base + 62, title)
+            canvas.setFont("Helvetica", 7)
+            canvas.drawString(0, base + 42, f"{high:.0f}")
+            canvas.drawString(0, base + 2, f"{low:.0f}")
+            canvas.setStrokeColor(colors.HexColor("#c5d2da"))
+            canvas.line(35, base, WIDTH - 8, base)
+            canvas.line(35, base, 35, base + 48)
+            positions = []
+            for token_index, value in enumerate(values):
+                x = 37 + token_index * (WIDTH - 49) / max(1, count - 1)
+                y = base + 46 * (value - low) / (high - low)
+                positions.append((x, y))
+                if field == "durations_frames":
+                    canvas.setStrokeColor(tone)
+                    canvas.line(x, base, x, y)
+            if field != "durations_frames":
+                canvas.setStrokeColor(tone)
+                path = canvas.beginPath()
+                path.moveTo(*positions[0])
+                for position in positions[1:]:
+                    path.lineTo(*position)
+                canvas.drawPath(path)
+            canvas.setFillColor(INK)
+            for fraction in (0, 0.25, 0.5, 0.75, 1):
+                token_index = round((count - 1) * fraction)
+                canvas.drawString(35 + fraction * (WIDTH - 49), base - 11, str(token_index))
+        canvas.setFont("Helvetica", 7)
+        canvas.drawRightString(WIDTH - 5, 0, "x-axis: token index; original labeled plots accompany the submission")
+
+
+def telugu_image(text):
+    width, height = 1800, 300
+    if os.name == "nt":
+        from ctypes import wintypes
+        class Rect(ctypes.Structure):
+            _fields_ = [("left", ctypes.c_long), ("top", ctypes.c_long), ("right", ctypes.c_long), ("bottom", ctypes.c_long)]
+        class LogFont(ctypes.Structure):
+            _fields_ = [(name, ctypes.c_long) for name in ("height", "width", "escapement", "orientation", "weight")] + [(name, ctypes.c_ubyte) for name in ("italic", "underline", "strike", "charset", "out", "clip", "quality", "pitch")] + [("face", ctypes.c_wchar * 32)]
+        gdi = ctypes.WinDLL("gdi32")
+        user = ctypes.WinDLL("user32")
+        gdi.CreateCompatibleDC.argtypes = [wintypes.HDC]
+        gdi.CreateCompatibleDC.restype = wintypes.HDC
+        gdi.CreateDIBSection.argtypes = [wintypes.HDC, ctypes.c_void_p, ctypes.c_uint, ctypes.POINTER(ctypes.c_void_p), wintypes.HANDLE, ctypes.c_ulong]
+        gdi.CreateDIBSection.restype = wintypes.HBITMAP
+        gdi.SelectObject.argtypes = [wintypes.HDC, wintypes.HGDIOBJ]
+        gdi.SelectObject.restype = wintypes.HGDIOBJ
+        gdi.CreateFontIndirectW.argtypes = [ctypes.POINTER(LogFont)]
+        gdi.CreateFontIndirectW.restype = wintypes.HFONT
+        gdi.DeleteObject.argtypes = [wintypes.HGDIOBJ]
+        gdi.DeleteDC.argtypes = [wintypes.HDC]
+        user.DrawTextW.argtypes = [wintypes.HDC, ctypes.c_wchar_p, ctypes.c_int, ctypes.POINTER(Rect), ctypes.c_uint]
+        dc = gdi.CreateCompatibleDC(None)
+        bits = ctypes.c_void_p()
+        header = ctypes.create_string_buffer(struct.pack("<IiiHHIIiiII", 40, width, -height, 1, 32, 0, width * height * 4, 0, 0, 0, 0))
+        bitmap = gdi.CreateDIBSection(dc, header, 0, ctypes.byref(bits), None, 0)
+        if not bitmap or not bits.value:
+            raise RuntimeError("Cannot initialize Telugu text renderer")
+        previous_bitmap = gdi.SelectObject(dc, bitmap)
+        font = LogFont()
+        font.height, font.weight, font.charset, font.quality, font.face = -43, 400, 1, 4, "Nirmala UI"
+        handle = gdi.CreateFontIndirectW(ctypes.byref(font))
+        previous_font = gdi.SelectObject(dc, handle)
+        ctypes.memset(bits, 255, width * height * 4)
+        rect = Rect(5, 5, width - 5, height - 5)
+        user.DrawTextW(dc, text, len(text), ctypes.byref(rect), 0x10 | 0x800)
+        image = PILImage.frombytes("RGB", (width, height), ctypes.string_at(bits, width * height * 4), "raw", "BGRX")
+        gdi.SelectObject(dc, previous_font)
+        gdi.SelectObject(dc, previous_bitmap)
+        gdi.DeleteObject(handle)
+        gdi.DeleteObject(bitmap)
+        gdi.DeleteDC(dc)
+    else:
+        if not features.check("raqm"):
+            raise RuntimeError("Telugu shaping requires Pillow with libraqm and a Telugu font")
+        font_path = os.environ.get("TELUGU_FONT", "/usr/share/fonts/truetype/noto/NotoSansTelugu-Regular.ttf")
+        font = ImageFont.truetype(font_path, 43)
+        image = PILImage.new("RGB", (width, height), "white")
+        drawing = ImageDraw.Draw(image)
+        lines, current = [], ""
+        for word in text.split(" "):
+            candidate = current + (" " if current else "") + word
+            if drawing.textlength(candidate, font=font) > width - 20:
+                lines.append(current)
+                current = word
+            else:
+                current = candidate
+        lines.append(current)
+        drawing.multiline_text((5, 5), "\n".join(lines), font=font, fill="black", spacing=15)
+    bounds = ImageChops.difference(image, PILImage.new("RGB", image.size, "white")).getbbox()
+    if not bounds:
+        raise RuntimeError("Empty Telugu text image")
+    image = image.crop((0, 0, width, min(height, bounds[3] + 12)))
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    buffer.seek(0)
+    return Image(buffer, width=WIDTH, height=WIDTH * image.height / width)
+
+
+def footer(canvas, document):
+    canvas.setStrokeColor(TEAL)
+    canvas.line(48, 806, 547, 806)
+    canvas.setFillColor(NAVY)
+    canvas.setFont("Helvetica", 8)
+    canvas.drawString(48, 817, "FASTSPEECH 2  /  ENGLISH + TELUGU")
+    canvas.setFont("Helvetica", 7)
+    canvas.drawString(48, 27, "Evidence-based technical report | prediction arrays and committed artifacts")
+    canvas.drawRightString(547, 27, f"{document.page}")
+
+
+def read_summary(language):
+    return json.loads((ROOT / "Results" / language / "variance_predictions_summary.json").read_text(encoding="utf-8"))
+
+
+def loss_history(language, split):
+    destination = ROOT / "Results" / language / "metrics" / f"{split}_losses.csv"
+    source = ROOT / language / "logs" / f"{split}_losses.csv"
+    if not destination.exists() and source.exists():
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+    with destination.open(encoding="utf-8", newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    steps = [int(row["step"]) for row in rows]
+    if not rows or steps != sorted(set(steps)):
+        raise ValueError(f"Empty or duplicate/nonmonotonic history: {destination}")
+    return rows
+
+
+def main():
+    histories = {language: {split: loss_history(language, split) for split in ("train", "val")} for language in ("English", "Telugu")}
+    findings = audit()
+    if findings["errors"]:
+        raise RuntimeError("\n".join(findings["errors"]))
+    summaries = {language: read_summary(language) for language in ("English", "Telugu")}
+    add("IMPLEMENTATION & EVALUATION", "ReportSub")
+    add("FastSpeech 2\nfor English and Telugu".replace("\n", "<br/>"), "ReportTitle")
+    add("Two independent acoustic models, language-specific frontends and explicit duration, pitch and energy conditioning.")
+    story.append(Spacer(1, 15))
+    table([["Submission component", "Evidence in this repository"], ["Acoustic implementation", "ming024/FastSpeech2 adaptation; reference d4e79eb52e8b01d24703b2dfc0385544092958f3"], ["Datasets", "English: ai4bharat/Svarah. Telugu: SPRINGLab/IndicTTS_Telugu."], ["Required outputs", "10 WAVs, 30 predictor plots and 4 loss figures"], ["Audio checkpoint provenance", "English: step 8,000, speaker ID 14. Telugu: step 13,000, speaker ID 0."], ["Training histories", "600 training entries and 60 validation entries per language, through 60,000 steps."], ["Checkpoint access", "Download links and matching inference metadata still required."]], [150,349])
+    add("Abstract", "ReportSub")
+    add("This project adapts a non-autoregressive FastSpeech 2 implementation to English and Telugu. Phoneme embeddings pass through a feed-forward Transformer encoder, speaker conditioning, a variance adaptor, a length regulator and a mel decoder, followed by HiFi-GAN waveform synthesis. The submitted prediction arrays support quantitative per-sentence timing and prosody analysis. The committed loss figures show early validation improvement followed by a plateau while training loss continues to fall.")
+    add("Evidence boundary", "ReportSub")
+    add("This revision distinguishes source-code behavior, saved predictions, CSV loss evidence and claims requiring external records. The selected audio checkpoints are earlier than the 60,000-step endpoints and coincide with the minima in the supplied validation histories. Final split manifests, selected checkpoints and matching inference metadata are not present locally. No listening study, MOS, word error rate or independent pronunciation judgment is claimed.")
+    add("Assignment coverage", "ReportSub")
+    add("Sections 1-3 explain implementation, data preparation and configuration; Section 4 analyzes losses; Section 5 provides one page for each test input; Sections 6-7 discuss limitations, reproducibility and remaining submission evidence.")
+
+    section("1", "Architecture and mathematical formulation")
+    story.append(Workflow([
+        ("Text frontend and FFT encoder", "Raw text -> normalized words -> phones -> embeddings + positions -> 4 FFT blocks"),
+        ("Speaker-conditioned hidden states", "H = Encoder(phones) + speaker embedding; hidden dimension 256"),
+        ("Variance adaptor", "Separate log-duration, pitch and energy predictors; pitch/energy embeddings added to H"),
+        ("Length regulator and mel decoder", "Repeat each token by its duration -> 6 FFT blocks -> 80-channel mel projection"),
+        ("PostNet and HiFi-GAN", "Residual convolutional refinement -> pretrained universal vocoder -> 22,050 Hz WAV"),
+    ], 295))
+    add("Training and synthesis", "ReportSub")
+    add("For token i, the duration head predicts z_i with target log(1 + d_i). At default inference controls, the expansion count is d_hat_i = max(round(exp(z_i) - 1), 0), and output length is T = sum_i d_hat_i. Training supplies aligned reference durations and reference pitch/energy; free-running inference supplies predicted values. A low reference-conditioned mel loss does not establish free-running intelligibility.")
+    add("Loss and feature definitions", "ReportSub")
+    add("L = L1(mel, target) + L1(postnet_mel, target) + MSE(z, log(1+d)) + MSE(pitch, pitch_target) + MSE(energy, energy_target). Padding masks exclude padded tokens/frames. Energy is the L2 norm of linear STFT magnitudes, not dB SPL. F0 is extracted with PyWorld and, in this baseline, interpolated and averaged per phone before normalization.")
+    table([["Setting", "Committed baseline"], ["FFT dimensions", "4 encoder / 6 decoder blocks; hidden 256; 2 attention heads; convolution filter 1024"], ["Predictors", "Two convolution layers; kernel 3; 256 channels; dropout 0.5"], ["Variance embeddings", "256 linear bins for normalized phone-level pitch and energy"], ["Output", "80 mel channels plus residual PostNet; separate pretrained HiFi-GAN"]], [130,369])
+
+    section("2", "Reference reuse and language adaptations")
+    table([["Component", "Adaptation / implication"], ["Reference Transformer", "Encoder/decoder FFT structure retained from ming024. The project is an adaptation, not a bit-for-bit reproduction."], ["Variance adaptor", "Energy-control routing corrected; length-regulator tensors use the input device. Do not label model/modules.py unmodified."], ["English frontend", "Lexicon lookup with g2p_en OOV fallback; time/date/number expansion. First-pronunciation lookup can miss noun/verb stress distinctions."], ["Telugu frontend", "Deterministic Unicode decomposition: consonant plus inherent vowel unless a vowel sign or virama changes it; dependent signs mapped to independent vowel phones."], ["Speaker conditioning", "Both configurations enable learned speaker embeddings. English demographic groups are not independently verified individual identities."], ["Preprocessing", "Interior silence preservation, timeline checks, token checks and selected-training-only normalization/bounds."], ["Training / inference", "CLI paths and explicit checkpoint overrides; caching, checkpoint resume and prediction summaries."]], [135,364])
+    add("Differences from the supplied v8 paper", "ReportSub")
+    table([["Aspect", "Paper v8", "Project baseline"], ["Decoder depth", "4 FFT blocks", "6 FFT blocks"], ["Pitch target", "Frame-level CWT", "Direct phone-level F0"], ["Energy target", "Frame-level", "Phone-level"], ["Added PostNet", "Absent", "Residual convolutional PostNet"], ["Vocoder", "Parallel WaveGAN", "Universal HiFi-GAN"]], [130,180,189])
+    add("Telugu representation limits", "ReportSub")
+    add("Unicode decomposition is a practical phonemic approximation; it is not a linguistically validated finite-state transducer merely because it is deterministic. Anusvara assimilation, loanwords, allophones and contextual pronunciation remain potential errors. The source inventory includes more than the phones observed in one output; fixed claims of '64 symbols' or '84 phones' are not established by the saved results.")
+    add("Normalization and test fidelity", "ReportSub")
+    add("Raw input is preserved separately from normalized text. E3 and T3 retain intentional double spaces in raw_text. A frontend may collapse whitespace during normalization; preservation of the source string does not prove an audible extra pause. Exact Telugu strings are stored in UTF-8 in inference.py and prediction summaries.")
+
+    section("3", "Data, alignment and experiment protocol")
+    story.append(Workflow([
+        ("Inventory and deterministic selection", "Verify source revision, true speaker mapping, duplicates, durations and transcript/audio agreement"),
+        ("Speaker-aware partitioning", "Target about 5h train + 1h validation; disjoint utterances/audio hashes; reserve candidates"),
+        ("Lexicon and forced alignment", "Compatible acoustic/dictionary phones; train Telugu aligner on training data only"),
+        ("Feature extraction and checks", "Full timeline -> mel/F0/energy/duration; selected-training-only statistics and bounds"),
+        ("Training and evaluation", "Vocoder reconstruction -> small overfit -> held-out pilot -> separate full runs"),
+    ], 285))
+    add("Selection implemented in the committed preparation scripts", "ReportSub")
+    add("Both scripts default to seed 42, 1-20 second clips, mono 22,050 Hz PCM output, waveform SHA-1 deduplication and speaker-stratified utterance splits. English creates demographic profiles from eight fields; Telugu uses both female and male labels. Split-specific reserves support replenishment after alignment or feature rejection. These defaults describe code, not independently verified final-run settings.")
+    add("Required dataset evidence", "ReportSub")
+    add("The target is approximately five training hours and one validation hour per language after trimming and rejection. The local repository lacks data_stats.json, final manifests, preprocess_summary.json and split/hash audit records. Earlier reports give conflicting counts and speaker strategies; none is silently promoted to verified fact here. Supply the actual run's summaries and manifests before final submission.")
+    add("Alignment failure and its correction", "ReportSub")
+    add("The earlier reader omitted empty interior pause intervals while audio trimming retained those spans. Subsequent phone boundaries then mapped to earlier frames. The fix reads empty intervals, maps interior silence/gaps to sp, rejects overlaps and checks the pre-slice time span. Equality after slicing is insufficient: a truncated target can still equal an incorrect duration sum.")
+    add("Optimization and checkpoint distinction", "ReportSub")
+    add("Committed defaults: batch 16; Adam betas (0.9, 0.98), epsilon 1e-9; warmup 4,000; clipping 1.0; total 60,000; annealing at 30k/45k/55k. The output metadata identifies 8k/13k checkpoints; the supplied CSV histories independently place the lowest validation totals at those steps. Exact run configuration, hardware and elapsed time still require the training run's environment/config records.")
+
+    for language in ("English", "Telugu"):
+        section("4", f"{language}: loss-curve analysis")
+        for filename, caption in [("training_loss.png", "Training: total and five component losses"), ("validation_loss.png", "Validation: total and five component losses")]:
+            image_path = ROOT / "Results" / language / filename
+            with PILImage.open(image_path) as source:
+                ratio = source.height / source.width
+            story.append(Image(str(image_path), width=WIDTH, height=WIDTH * ratio))
+            add(caption, "ReportSmall")
+        if language == "English":
+            add("Visual interpretation", "ReportSub")
+            add("The validation total falls rapidly early, reaches its lowest visible region near the early checkpoints, then fluctuates around a plateau. Mel and PostNet validation errors gradually rise after their early decrease while training errors continue falling. This widening generalization gap is consistent with overfitting; more optimizer steps alone are not a remedy.")
+        else:
+            add("Visual interpretation", "ReportSub")
+            add("Training losses fall substantially over the run. Validation improves early and then largely plateaus, with a persistent train/validation gap. Compare each component on its own scale: raw totals sum heterogeneous losses. Lower Telugu losses do not by themselves establish better intelligibility or a causal language advantage.")
+        add("The figures extend to 60,000 steps. The following table is computed from the preserved CSVs. Training values are sampled minibatch losses; validation values are the trainer's aggregate, so their difference is descriptive rather than a matched-sample statistical estimate.", "ReportSmall")
+        section("4", f"{language}: numerical convergence evidence")
+        train_rows = histories[language]["train"]
+        val_rows = histories[language]["val"]
+        best = min(val_rows, key=lambda row: float(row["total_loss"]))
+        chosen = summaries[language][next(iter(summaries[language]))]["checkpoint_step"]
+        records = [("Train: first", train_rows[0]), ("Train: selected", next(row for row in train_rows if int(row["step"]) == chosen)), ("Train: final", train_rows[-1]), ("Val: first", val_rows[0]), ("Val: minimum", best), ("Val: final", val_rows[-1])]
+        keys = ("total_loss", "mel_loss", "mel_postnet_loss", "pitch_loss", "energy_loss", "duration_loss")
+        table([["Split", "Step", "Total", "Mel", "PostNet", "Pitch", "Energy", "Duration"]] + [[label, row["step"]] + [f"{float(row[key]):.4f}" for key in keys] for label, row in records], [88,43,62,60,62,60,60,64])
+        improvement = 100 * (float(val_rows[0]["total_loss"]) - float(best["total_loss"])) / float(val_rows[0]["total_loss"])
+        add(f"There are {len(train_rows)} training and {len(val_rows)} validation records. The lowest logged validation total is {float(best['total_loss']):.6f} at step {int(best['step']):,}, a {improvement:.2f}% decrease from the first logged validation value. The saved audio metadata selects step {chosen:,}, which matches this minimum.")
+        add("Selection and overfitting", "ReportSub")
+        add("The final checkpoint is not automatically the best generalizing checkpoint. The continuing reduction in training error alongside relatively flat or rising validation errors supports early checkpoint selection. The chosen step has the best logged loss, but perceptual quality still requires free-running listening evaluation. Neither total loss nor a statistically valid duration array establishes correct articulation.")
+        add("Log provenance", "ReportSub")
+        add(f"Unmodified CSVs are preserved under Results/{language}/metrics/. The audit records their presence, and the report derives tables directly from them. The CSVs do not record all dataset, environment, checkpoint-hash or listening information; these must be supplied separately. Losses from different corpora should not be treated as directly comparable naturalness scores.")
+
+    analyses = {
+        "E1": "The rare long word stresses pronunciation generation and sentence completeness. The saved sequence contains a zero-duration token; a zero expansion removes that token from the frame sequence. This merits listening review but does not alone prove a missing audible word.",
+        "E2a": "Noun-context conduct should be examined together with E2b. Contextual stress cannot be established from a sentence-average F0. Compare the actual phone/stress subsequence and listen to the word; first-pronunciation dictionary lookup is a known limitation.",
+        "E2b": "The modal will supplies verb context for conduct. A contextual encoder can alter prosody but cannot reliably repair a wrong fixed pronunciation sequence. Pitch and duration differences from E2a must be interpreted alongside different surrounding words.",
+        "E3": "The deliberately broken rhyth  m input is retained. The frontend treats the pieces separately; the saved normalization collapses whitespace. Evaluate the pronunciation of both pieces without silently replacing the input with rhythm.",
+        "E4": "Time/date expansion and andaroo require frontend review. The internal comma has an explicit sp token. Its duration is a model prediction, not a measurement of silence in the resulting waveform. Correct numeric words and loanword pronunciation need listening.",
+        "T1": "The scientific loanword tests long consonant/vowel sequences and Telugu phonemic decomposition. Verify vowel length, clusters and complete delivery by a Telugu listener. A smooth predicted F0 curve is not independent evidence of accurate pronunciation.",
+        "T2a": "Pattu occurs in the grip/hold context. Inspect the two retroflex consonant phones and their durations for the intended gemination. Phone durations alone do not establish that a natural closure and release were realized by the vocoder.",
+        "T2b": "Pattu occurs before the noun for sari in the silk context. The same spelling can have similar segmental pronunciation with different context-dependent prosody. There is no requirement that T2a and T2b have identical F0 or duration.",
+        "T3": "The broken ada  vilo word and double space are intentional raw inputs. Analyze unwanted pauses, changed syllabification and geminate realization by listening; do not automatically join the fragments when evaluating the required output.",
+        "T4": "This is the longest Telugu test output and exercises year, ordinal and time expansion. Inspect normalization of 2026, 12va and 10:45, sentence completeness and the comma pause. Numeric expansion can produce grammatical or pronunciation errors even when all token IDs are valid.",
+    }
+    for language, summary in summaries.items():
+        for sample_id, row in summary.items():
+            section("5", f"{sample_id}: per-sentence prosody analysis")
+            add(f"{language} | step {row['checkpoint_step']:,} | speaker ID {row['speaker_id']}", "ReportSub")
+            if language == "Telugu":
+                story.append(telugu_image(row["raw_text"]))
+                story.append(Spacer(1, 9))
+                add("Exact UTF-8 source text is also preserved in the prediction JSON; the sentence above uses shaped Telugu rendering.", "ReportSmall")
+            else:
+                add(html.escape(row["raw_text"]).replace("  ", "&#160;&#160;"))
+            count = len(row["tokens"])
+            seconds = row["total_frames"] * 256 / 22050
+            zero = sum(value == 0 for value in row["durations_frames"])
+            pause = sum(value for token, value in zip(row["tokens"], row["durations_frames"]) if token == "sp")
+            pitch = row["pitch_hz"]
+            energy = row["energy"]
+            table([["Saved measurement", "Value"], ["Tokens / expansion / duration", f"{count} / {row['total_frames']} frames / {seconds:.3f} seconds"], ["F0 token mean [range]", f"{statistics.mean(pitch):.2f} [{min(pitch):.2f}, {max(pitch):.2f}] Hz"], ["Energy token mean [range]", f"{statistics.mean(energy):.2f} [{min(energy):.2f}, {max(energy):.2f}]"], ["Zero-duration tokens / explicit pause", f"{zero} tokens / {pause} frames ({pause * 256 / 22050:.3f} s)"]], [192,307])
+            story.append(Prosody(row))
+            add(analyses[sample_id])
+            add("Interpretation limits: token means are unweighted, not waveform-measured F0 or loudness. Interpolated continuous F0 includes originally unvoiced regions. Predictor curves cannot certify intelligibility. No independent listening rating has been supplied for this sample.", "ReportSmall")
+
+    section("6", "Comparison, limitations and quality review")
+    table([["Dimension", "English", "Telugu"], ["Source character", "Accent-diverse ASR corpus; multiple demographic profiles", "Studio TTS corpus; two source voices"], ["Submitted synthesis", "Step 8,000; speaker 14", "Step 13,000; speaker 0"], ["Frontend risk", "OOVs, conduct stress, dates and loanwords", "Clusters, vowel length, anusvara and number grammar"], ["Interpretation", "Cannot separate accent/noise/speaker effects from model performance", "Lower visual losses do not independently prove superior speech"]], [109,195,195])
+    add("Listening protocol required for final quality claims", "ReportSub")
+    add("Listen to all ten WAVs at normal speed with headphones; use a Telugu-proficient reviewer for T1-T4. Record intelligibility, omitted/repeated content, target-word pronunciation, prosody and clipping. Compare real-mel vocoder reconstruction first to separate vocoder mismatch from acoustic-model failure. Compare reference-conditioned and free-running held-out samples to isolate variance-prediction errors. Keep the exact input text, speaker and selected checkpoint fixed.")
+    add("No unmeasured results", "ReportSub")
+    add("This report does not claim MOS, ASR WER, speaker similarity, stress correctness or natural pronunciation without measurements/listening records. The saved artifacts establish waveform existence and predictor values. Speech quality is still an open evaluation item until reviewed. The submission checker verifies structure, text and numerical consistency, not perceptual quality.")
+    add("Prioritized improvements", "ReportSub")
+    add("First recover selected model bundles and source logs. Then validate source audio/alignments and speaker identities, review pronunciation frontends, and choose checkpoints on held-out free-running speech. Only after these checks consider stronger alignment models, context-sensitive pronunciations, richer pitch modeling or vocoder adaptation. More training is useful only when held-out behavior improves.")
+    add("Assignment completion status", "ReportSub")
+    add(f"The structural audit checks ten WAVs, thirty variance plots, four loss images, raw-text equality, predictor lengths, duration sums and audio format. It currently reports {len(findings['submission_blockers'])} missing-evidence items. Refer to Results/submission_audit.json and model_artifacts.json; do not call the project fully reproducible while these items remain unresolved.")
+    for blocker in findings["submission_blockers"]:
+        add("- " + html.escape(blocker), "ReportSmall")
+
+    section("7", "Reproducibility and evaluator access")
+    add("Selected model bundles", "ReportSub")
+    add('Owner-supplied artifact folder: <link href="https://drive.google.com/drive/folders/1WsR1NHhzpkLvk3V0g8X3Jy-xsXNlsYHf?usp=sharing" color="#008477">Google Drive model and experiment artifacts</link>. Its contents and public download accessibility are awaiting verification.', "ReportSmall")
+    add("Provide the exact English 8,000-step and Telugu 13,000-step checkpoints used for the audio, together with the run's config.yaml, stats.json, speakers.json, generated lexicon and exact text frontend/symbol inventory. Checkpoint weights alone cannot reconstruct speaker IDs or normalized predictor outputs. The 60,000-step checkpoints are a separate experiment artifact unless used explicitly for new outputs.")
+    add("Inference after restoring the matching model bundle", "ReportSub")
+    for language, step, speaker in [("English",8000,14),("Telugu",13000,0)]:
+        add(f"cd {language}<br/>python inference.py --config config.yaml<br/>&#160; --ckpt_file checkpoints/{step}.pth.tar<br/>&#160; --preprocessed_path preprocessed_data<br/>&#160; --speaker_id {speaker}<br/>&#160; --result_path ../Results/{language}", "ReportCode")
+    add("Each displayed invocation is one shell command; join its wrapped lines. Use the supplied bundle's configuration, not an assumed historical configuration. Full data preparation/alignment/training commands and the train-only Telugu alignment recipe are in README.md.", "ReportSmall")
+    add("Environment and evidence", "ReportSub")
+    add("The acoustic requirements file uses lower version bounds; it is not an environment lock. Export the actual training environment and CUDA/PyTorch versions with the original logs. Report generation uses reportlab, Pillow and pypdfium2. Rebuild with python Report/generate_report.py; audit with python tools/audit_submission.py --strict.")
+    add("References", "ReportSub")
+    for ref in [
+        "[1] Assignment: FastSpeech2_Assignment.pdf, sections 1-4, including all seven technical-report requirements.",
+        "[2] Ren et al. FastSpeech 2: Fast and High-Quality End-to-End Text to Speech. Supplied arXiv:2006.04558v8. https://arxiv.org/abs/2006.04558",
+        "[3] ming024/FastSpeech2. Reference commit d4e79eb52e8b01d24703b2dfc0385544092958f3. https://github.com/ming024/FastSpeech2",
+        "[4] Dataset sources: https://huggingface.co/datasets/ai4bharat/Svarah and https://huggingface.co/datasets/SPRINGLab/IndicTTS_Telugu",
+        "[5] Repository evidence: language configurations, preprocessing/model/frontend source, Results/*/variance_predictions_summary.json and four loss PNGs.",
+    ]:
+        add(html.escape(ref), "ReportSmall")
+    OUT.mkdir(exist_ok=True)
+    destination = OUT / "Technical_Report.pdf"
+    temporary = OUT / "Technical_Report.build.pdf"
+    doc = SimpleDocTemplate(str(temporary), pagesize=(595.276,841.89), rightMargin=48, leftMargin=48, topMargin=53, bottomMargin=46, title="FastSpeech 2 for English and Telugu - Technical Report", author="FastSpeech2-English-Telugu project")
+    doc.build(story, onFirstPage=footer, onLaterPages=footer)
+    temporary.replace(destination)
+    (ROOT / "Results" / "submission_audit.json").write_text(json.dumps(findings, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(f"Generated {destination}")
 
 
 if __name__ == "__main__":
-    render_pdf()
+    main()

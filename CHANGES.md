@@ -1,44 +1,49 @@
-# Modifications Made to `ming024/FastSpeech2`
+# Changes from ming024/FastSpeech2
 
-This file documents all structural, architectural, and linguistic adaptations made to the reference implementation ([`ming024/FastSpeech2`](https://github.com/ming024/FastSpeech2), commit `d4e79eb52e8b01d24703b2dfc0385544092958f3`) for the **English (`Svarah`)** and **Telugu (`IndicTTS_Telugu`)** Text-to-Speech systems.
+Reference commit: `d4e79eb52e8b01d24703b2dfc0385544092958f3`.
+This log describes implementation changes, not proof that every historical run used the current code.
 
----
+## Repository and architecture
 
-## 1. Repository Restructuring & Configuration Unification
-- **Independent Language Modules (`English/` and `Telugu/`):** Restructured the codebase into two self-contained pipelines (`project/English/` and `project/Telugu/`), each containing `preprocess.py`, `train.py`, `inference.py`, `config.yaml`, and `checkpoints/`.
-- **Unified `config.yaml` ([`English/config.yaml`](file:///D:/IITH_ASSIG/project/English/config.yaml), [`Telugu/config.yaml`](file:///D:/IITH_ASSIG/project/Telugu/config.yaml)):**
-  - Merged the three separate configuration files in `ming024/FastSpeech2` (`preprocess.yaml`, `model.yaml`, `train.yaml`) into a single `config.yaml` per language.
-  - Enabled `multi_speaker: True` for **both** languages (`115` demographic speaker groups in `Svarah`; `2` studio speakers `te_female` and `te_male` in `IndicTTS_Telugu` since neither single Telugu speaker has 6 hours alone).
-  - Increased `max_seq_len` from `1000` to `2000` frames to accommodate utterances up to 20 seconds (`~1,723` frames at `22,050 Hz`, `hop_length=256`) without truncation.
+- Independent English/ and Telugu/ pipelines with unified config.yaml files.
+- Both configurations enable speaker embeddings, phone-level pitch/energy and universal HiFi-GAN.
+- Four encoder/six decoder FFT blocks, hidden size 256, two attention heads; maximum sequence length 2,000.
+- CLI path, checkpoint and step overrides support isolated experiments.
+- The reference PostNet is retained. Paper v8 differs: four decoder blocks, frame-level CWT pitch, frame-level energy, no added PostNet and Parallel WaveGAN.
+- Model code is not wholly unmodified: energy conditioning uses e_control; length-regulator output tensors follow the input device.
 
-## 2. Telugu Phonemic Frontend & Lexicon (`project/Telugu/`)
-- **Telugu Phonemic Decomposition ([`Telugu/text/cleaners.py`](file:///D:/IITH_ASSIG/project/Telugu/text/cleaners.py)):**
-  - Implemented `telugu_word_to_phones()` and `telugu_text_to_phones()` to convert Telugu words into true acoustic phoneme sequences rather than raw code points:
-    - Consonants (*Hallulu*, `U+0C15–U+0C39`) emit their base consonant phone plus inherent vowel `'అ'` unless followed by a dependent vowel sign (*Gunintam*) or *Virama/Halant* (`్`, `U+0C4D`).
-    - Dependent vowel signs (`ా, ి, ీ, ు, ూ, ృ, ె, ే, ై, ొ, ో, ౌ`) map to their canonical independent vowel phoneme symbols (*Achulu*: `ఆ, ఇ, ఈ, ఉ, ఊ, ఋ, ఎ, ఏ, ఐ, ఒ, ఓ, ఔ`).
-    - *Virama* (`్`) suppresses the inherent vowel, accurately modeling consonant clusters (*samyukta aksharas*), geminates (e.g., `పట్టు` $\rightarrow$ `['ప', 'అ', 'ట', 'ట', 'ఉ']`), and word-final codas (e.g., `న్యూరోఫార్మకోలాజికల్`).
-    - *Anusvara* (`ం`) and *Visarga* (`ః`) are preserved as distinct coda phonemes.
-  - Implemented `expand_telugu_numbers()` for Telugu digits (`౦–౯`), ASCII numerals, clock times (`10:45` $\rightarrow$ `పది నలభై ఐదు`), ordinals (`12వ` $\rightarrow$ `పన్నెండవ`), and years (`2026` $\rightarrow$ `రెండు వేల ఇరవై ఆరు`).
+## Language frontends
 
-## 3. English Text Frontend & OOV Lexicon (`project/English/`)
-- **Time, Date, and Year Normalization ([`English/text/numbers.py`](file:///D:/IITH_ASSIG/project/English/text/numbers.py)):**
-  - Added `_time_re` and `_expand_time()` to expand clock times and meridiems (`10:45 AM` $\rightarrow$ `ten forty five a m`) prior to lexicon and `g2p_en` grapheme-to-phoneme conversion.
-- **Zero-OOV MFA Lexicon Generation ([`English/prepare_data.py`](file:///D:/IITH_ASSIG/project/English/prepare_data.py)):**
-  - Automatically augments `librispeech-lexicon.txt` with `g2p_en` ARPAbet pronunciations for all out-of-vocabulary Indian-English words in `Svarah` and the test sentences (`andaroo`, `antidisestablishmentarianism`, etc.) into `lexicon/english_svarah_mfa.dict`.
+- English uses the supplied lexicon plus g2p_en OOV pronunciations and a generated MFA dictionary; time/date/number normalization precedes phonemization.
+- Telugu uses Unicode decomposition with inherent vowels, dependent-vowel mapping and virama suppression. Anusvara/visarga are retained; number/time/ordinal expansion is language-specific.
+- This is a rule-based phonemic approximation, not a demonstrated linguistically validated FST. Contextual pronunciations and assimilation remain limitations.
+- Exact raw test strings, intact Telugu diacritics and intentional E3/T3 double spaces are preserved separately from normalized text.
+- Unsupported phones and prediction-length mismatches raise errors instead of silently truncating arrays.
 
-## 4. Bug Fixes & Data Integrity Enforcement
-- **Variance Adaptor Energy Control Fix ([`model/modules.py`](file:///D:/IITH_ASSIG/project/English/model/modules.py#L123-L125)):**
-  - Fixed upstream bug in `ming024/FastSpeech2` where `get_energy_embedding()` was passed `p_control` instead of `e_control` in both `phoneme_level` and `frame_level` branches, and replaced global `device` in `LengthRegulator.LR` with `x.device`.
-- **Speaker-Stratified Disjoint Splits & Deduplication ([`English/prepare_data.py`](file:///D:/IITH_ASSIG/project/English/prepare_data.py), [`Telugu/prepare_data.py`](file:///D:/IITH_ASSIG/project/Telugu/prepare_data.py)):**
-  - Implemented deterministic (`seed=42`) speaker-stratified splits (~5h train + ~1h val + split-specific reserves) with waveform SHA-1 deduplication and verification that every validation speaker is present in training.
-  - Removed heuristic/even duration fallbacks so training relies strictly on genuine MFA `.TextGrid` forced alignments.
-- **Train-Only Normalization, MFA 2.x Pause Preservation & Pre-Slice Timeline Checks ([`preprocessor/preprocessor.py`](file:///D:/IITH_ASSIG/project/English/preprocessor/preprocessor.py)):**
-  - Passed `include_empty_intervals=True` to `tgt.io.read_textgrid()` and filled any unannotated interior timestamp gaps with `"sp"`, fixing the MFA 2.x empty-interval omission that shifted post-pause phonemes onto earlier audio frames in Run 1.
-  - Added full-timeline pre-slice frame span checks (`expected_span_frames` and pre-slice `mel_spectrogram.shape[1]` / `len(pitch)` vs `sum(duration)` before slicing) and monotonic interval verification so truncated tails or missing interior silence cannot be hidden by array slicing.
-  - Modified `StandardScaler` fitting (`mean`, `std`) **and** quantization bounds (`min`, `max` in `stats.json`) for pitch and energy to fit **strictly on selected training utterances** (`train.txt`), removing unselected reserve `.npy` files and preventing validation/reserve leakage.
-  - Made normalization idempotent via raw feature caching and enforced strict feature invariants (`len(text_to_sequence) == len(phone) == len(duration) == len(pitch) == len(energy)` and `sum(duration) == mel_frames`).
-- **Resume-Safe Training, PyTorch 2.6 Compatibility & Isolated Run Overrides ([`train.py`](file:///D:/IITH_ASSIG/project/English/train.py), [`inference.py`](file:///D:/IITH_ASSIG/project/English/inference.py), [`utils/model.py`](file:///D:/IITH_ASSIG/project/English/utils/model.py)):**
-  - Added `weights_only=False` to `torch.load` calls for compatibility with PyTorch 2.6+.
-  - Added CLI overrides (`--total_step`, `--val_step`, `--save_step`, `--synth_step`, `--preprocessed_path`, `--ckpt_path`, `--log_path`, `--result_path`, `--ckpt_file`) to `train.py` and `inference.py` to support isolated Run 2 directories (`runs/pause_fix_v2/`), 64-clip overfit diagnostics, and checkpoint sweeps without mutating `config.yaml`.
-  - Updated `train.py` to prune duplicate CSV steps on `--restore_step`, save `best_val.pth.tar`, and render PNG loss plots at validation intervals (`val_step`) rather than every logging step.
-  - Updated `inference.py` to preserve exact raw test strings from the PDF (including intact Telugu vowel signs and double spaces in `E3` and `T3`), assert strict token/prediction length equality, and export both `log_durations` and integer `durations_frames`.
+## Preparation and alignment
+
+- Deterministic seed-42, speaker-aware utterance splits with waveform SHA-1 deduplication and partition-specific reserves.
+- English demographic profiles must not be described as verified unique individuals. Earlier documents gave conflicting counts; actual run manifests are required.
+- Both Telugu source voices are supported, with explicit speaker conditioning.
+- Duration targets come from genuine TextGrids; fixed-weight duration fallbacks were removed.
+- The reader retains empty intervals. Interior gaps become sp; overlapping/nonmonotonic intervals are rejected.
+- Pre-slice feature/timeline checks guard against missing interior pauses and discarded tails. Passing a length check is not proof of phone-boundary accuracy.
+- Normalization statistics and quantization bounds use selected training examples. Raw caches support idempotent regeneration; unselected reserves are excluded from final feature outputs.
+
+## Training and inference
+
+- In-memory dataset/validation-loader caching reduces repeated small-file reads.
+- Checkpoint loading explicitly handles PyTorch's weights_only behavior; load only trusted artifacts.
+- Resume prunes duplicate CSV steps and preserves best-validation state.
+- CSVs record total plus five losses; validation intervals generate loss plots.
+- Inference exports raw/normalized text, tokens, speaker/checkpoint IDs, log/integer durations, F0 and energy.
+
+## Submission documentation revision
+
+- Replaced the static report with an evidence-driven ReportLab generator, vector architecture/workflow diagrams, CSV loss tables and an analysis page for every test sentence.
+- Preserved original CSV histories under Results/<Language>/metrics/ so tables can be regenerated without ignored local logs.
+- Corrected selected checkpoints: English step 8,000/speaker 14; Telugu step 13,000/speaker 0. These match minima in the supplied validation histories.
+- Removed unsupported claims about exact final data counts, guaranteed pronunciation, fixed phone counts and completely unchanged model code.
+- Added model_artifacts.json, a standard-library submission audit, separate report dependencies and a page-rendering utility.
+- Corrected README preparation/alignment/inference commands; distinguished dependency lower bounds from an environment lock.
+- Download access, actual final manifests/run metadata and listening observations remain explicit requirements.

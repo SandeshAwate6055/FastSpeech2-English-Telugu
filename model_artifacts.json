@@ -1,0 +1,26 @@
+{
+  "description": "Checkpoints used by the committed audio; steps come from variance_predictions_summary.json. Fill verified download URLs and hashes before submission.",
+  "shared_folder_url": "https://drive.google.com/drive/folders/1WsR1NHhzpkLvk3V0g8X3Jy-xsXNlsYHf?usp=sharing",
+  "shared_folder_access_verified": false,
+  "shared_folder_status": "Provided by the model owner. Folder contents and evaluator download access have not yet been verified from this session.",
+  "English": {
+    "checkpoint_step": 8000,
+    "speaker_id": 14,
+    "checkpoint_file": "English/checkpoints/8000.pth.tar",
+    "download_url": null,
+    "sha256": null,
+    "metadata_directory": "English/preprocessed_data",
+    "metadata_download_url": null,
+    "required_metadata": ["stats.json", "speakers.json", "config.yaml", "lexicon/english_svarah_mfa.dict", "text/symbols.py"]
+  },
+  "Telugu": {
+    "checkpoint_step": 13000,
+    "speaker_id": 0,
+    "checkpoint_file": "Telugu/checkpoints/13000.pth.tar",
+    "download_url": null,
+    "sha256": null,
+    "metadata_directory": "Telugu/preprocessed_data",
+    "metadata_download_url": null,
+    "required_metadata": ["stats.json", "speakers.json", "config.yaml", "text/symbols.py", "text/cleaners.py"]
+  }
+}
