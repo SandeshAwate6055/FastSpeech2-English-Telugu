@@ -19,6 +19,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 from audit_submission import audit
+from figures import Architecture, AudioStrip, LossTrend
 
 OUT = ROOT / "Report"
 WIDTH = 499
@@ -27,7 +28,7 @@ TEAL = colors.HexColor("#008477")
 INK = colors.HexColor("#263b4d")
 PALE = colors.HexColor("#edf4f7")
 styles = getSampleStyleSheet()
-styles.add(ParagraphStyle(name="ReportBody", fontName="Helvetica", fontSize=10, leading=15, textColor=INK, spaceAfter=9))
+styles.add(ParagraphStyle(name="ReportBody", fontName="Helvetica", fontSize=9.5, leading=14, textColor=INK, spaceAfter=9))
 styles.add(ParagraphStyle(name="ReportTitle", fontName="Helvetica-Bold", fontSize=29, leading=34, textColor=NAVY, spaceAfter=18))
 styles.add(ParagraphStyle(name="ReportHeading", fontName="Helvetica-Bold", fontSize=19, leading=24, textColor=NAVY, spaceAfter=13))
 styles.add(ParagraphStyle(name="ReportSub", fontName="Helvetica-Bold", fontSize=11, leading=16, textColor=TEAL, spaceBefore=9, spaceAfter=7))
@@ -98,11 +99,13 @@ class Prosody(Flowable):
         super().__init__()
         self.row = row
         self.width = WIDTH
-        self.height = 279
+        self.height = 257
 
     def draw(self):
         canvas = self.canv
         count = len(self.row["tokens"])
+        canvas.saveState()
+        canvas.scale(1, 257 / 279)
         for index, (field, title, tone) in enumerate([
             ("durations_frames", "Duration / mel frames", TEAL),
             ("pitch_hz", "Predicted continuous F0 / Hz", colors.HexColor("#b35a35")),
@@ -142,6 +145,7 @@ class Prosody(Flowable):
                 canvas.drawString(35 + fraction * (WIDTH - 49), base - 11, str(token_index))
         canvas.setFont("Helvetica", 7)
         canvas.drawRightString(WIDTH - 5, 0, "x-axis: token index; original labeled plots accompany the submission")
+        canvas.restoreState()
 
 
 def telugu_image(text):
@@ -213,6 +217,7 @@ def telugu_image(text):
 
 
 def footer(canvas, document):
+    canvas.bookmarkPage(f"page-{document.page}")
     canvas.setStrokeColor(TEAL)
     canvas.line(48, 806, 547, 806)
     canvas.setFillColor(NAVY)
@@ -220,7 +225,8 @@ def footer(canvas, document):
     canvas.drawString(48, 817, "FASTSPEECH 2  /  ENGLISH + TELUGU")
     canvas.setFont("Helvetica", 7)
     canvas.drawString(48, 27, "Evidence-based technical report | prediction arrays and committed artifacts")
-    canvas.drawRightString(547, 27, f"{document.page}")
+    canvas.drawRightString(547, 27, f"{document.page} / 20")
+    canvas.linkRect("Contents", "page-1", (48, 18, 450, 37), relative=0, thickness=0)
 
 
 def read_summary(language):
@@ -244,29 +250,28 @@ def loss_history(language, split):
 def main():
     histories = {language: {split: loss_history(language, split) for split in ("train", "val")} for language in ("English", "Telugu")}
     findings = audit()
-    if findings["errors"]:
-        raise RuntimeError("\n".join(findings["errors"]))
+    build_errors = [message for message in findings["errors"] if message != "Missing Report/Technical_Report.pdf"]
+    if build_errors:
+        raise RuntimeError("\n".join(build_errors))
     summaries = {language: read_summary(language) for language in ("English", "Telugu")}
-    add("IMPLEMENTATION & EVALUATION", "ReportSub")
-    add("FastSpeech 2\nfor English and Telugu".replace("\n", "<br/>"), "ReportTitle")
-    add("Two independent acoustic models, language-specific frontends and explicit duration, pitch and energy conditioning.")
-    story.append(Spacer(1, 15))
-    table([["Submission component", "Evidence in this repository"], ["Acoustic implementation", "ming024/FastSpeech2 adaptation; reference d4e79eb52e8b01d24703b2dfc0385544092958f3"], ["Datasets", "English: ai4bharat/Svarah. Telugu: SPRINGLab/IndicTTS_Telugu."], ["Required outputs", "10 WAVs, 30 predictor plots and 4 loss figures"], ["Audio checkpoint provenance", "English: step 8,000, speaker ID 14. Telugu: step 13,000, speaker ID 0."], ["Training histories", "600 training entries and 60 validation entries per language, through 60,000 steps."], ["Checkpoint access", "Verified Google Drive download links, SHA-256 hashes, and local checkpoints confirmed."]], [150,349])
+    review = json.loads((ROOT / "Results/listening_review.json").read_text(encoding="utf-8"))
+    local_models_verified = all(findings["languages"][language]["checkpoint_locally_verified"] for language in ("English", "Telugu"))
+    model_verification = "Local selected checkpoint bytes match the registry." if local_models_verified else "Checkpoint hashes are recorded; selected weights are not both available for local verification."
+    add("TECHNICAL REPORT  /  ASSIGNMENT SUBMISSION", "ReportSub")
+    add("FastSpeech 2<br/>English and Telugu", "ReportTitle")
+    add("Separate acoustic models. Explicit prosody prediction. Reproducible evaluation.")
+    story.append(Spacer(1, 12))
+    table([["Evaluation package", "Contents and provenance"], ["Models / datasets", "English: Svarah; Telugu: IndicTTS Telugu. Two independent FastSpeech 2 models."], ["Selected speech", "English step 8,000 / speaker 14; Telugu step 13,000 / speaker 0."], ["Training record", "60,000 logged steps per language; checkpoint selection follows held-out validation minima."], ["Required outputs", "10 test WAVs, 30 duration/F0/energy plots, 4 loss figures."], ["Implementation", "ming024/FastSpeech2, reference d4e79eb; adaptations and paper differences documented below."]], [130,369])
     add("Abstract", "ReportSub")
-    add("This project adapts a non-autoregressive FastSpeech 2 implementation to English and Telugu. Phoneme embeddings pass through a feed-forward Transformer encoder, speaker conditioning, a variance adaptor, a length regulator and a mel decoder, followed by HiFi-GAN waveform synthesis. The submitted prediction arrays support quantitative per-sentence timing and prosody analysis. The committed loss figures show early validation improvement followed by a plateau while training loss continues to fall.")
-    add("Evidence boundary", "ReportSub")
-    add("This revision distinguishes source-code behavior, saved predictions, CSV loss evidence and claims requiring external records. The selected audio checkpoints are earlier than the 60,000-step endpoints and coincide with the minima in the supplied validation histories. Preprocessing summaries, split manifests, selected checkpoints and matching inference metadata are verified and accessible locally and on Drive. No listening study, MOS, word error rate or independent pronunciation judgment is claimed.")
-    add("Assignment coverage", "ReportSub")
-    add("Sections 1-3 explain implementation, data preparation and configuration; Section 4 analyzes losses; Section 5 provides one page for each test input; Sections 6-7 discuss limitations, reproducibility and remaining submission evidence.")
+    add("A phoneme encoder, speaker embeddings, duration/pitch/energy predictors, length expansion and mel decoder form each acoustic model. A pretrained universal HiFi-GAN produces waveforms. This report explains the adaptation, dataset selection, alignment failure recovery, quantitative convergence and every required test input. Saved waveform and predictor measurements are separated from listening judgments. The early validation minima motivate 8k/13k checkpoints rather than assuming the final step is best.")
+    add("Clickable reading guide", "ReportSub")
+    for pages, title in [(2,"Architecture and equations"),(3,"Language adaptations and reference differences"),(4,"Data, alignment and training workflow"),(5,"English losses and numerical convergence"),(7,"Telugu losses and numerical convergence"),(9,"Ten test-sentence analyses: pages 9-18"),(19,"Comparison, failures and improvements"),(20,"Reproduction commands and model links")]:
+        add(f'<link href="#page-{pages}" color="#008477">{pages:02d} / {title}</link>', "ReportSmall")
+    add("Evidence status", "ReportSub")
+    add(f"Structural checks pass; {len(findings['submission_blockers'])} evidence items remain open. {model_verification} Reserve audio-hash coverage and per-sentence listening observations are incomplete. Source snapshots and measured results are provided; no MOS, WER, naturalness score or successful retraining is invented.", "ReportSmall")
 
     section("1", "Architecture and mathematical formulation")
-    story.append(Workflow([
-        ("Text frontend and FFT encoder", "Raw text -> normalized words -> phones -> embeddings + positions -> 4 FFT blocks"),
-        ("Speaker-conditioned hidden states", "H = Encoder(phones) + speaker embedding; hidden dimension 256"),
-        ("Variance adaptor", "Separate log-duration, pitch and energy predictors; pitch/energy embeddings added to H"),
-        ("Length regulator and mel decoder", "Repeat each token by its duration -> 6 FFT blocks -> 80-channel mel projection"),
-        ("PostNet and HiFi-GAN", "Residual convolutional refinement -> pretrained universal vocoder -> 22,050 Hz WAV"),
-    ], 295))
+    story.append(Architecture())
     add("Training and synthesis", "ReportSub")
     add("For token i, the duration head predicts z_i with target log(1 + d_i). At default inference controls, the expansion count is d_hat_i = max(round(exp(z_i) - 1), 0), and output length is T = sum_i d_hat_i. Training supplies aligned reference durations and reference pitch/energy; free-running inference supplies predicted values. A low reference-conditioned mel loss does not establish free-running intelligibility.")
     add("Loss and feature definitions", "ReportSub")
@@ -278,9 +283,11 @@ def main():
     add("Differences from the supplied v8 paper", "ReportSub")
     table([["Aspect", "Paper v8", "Project baseline"], ["Decoder depth", "4 FFT blocks", "6 FFT blocks"], ["Pitch target", "Frame-level CWT", "Direct phone-level F0"], ["Energy target", "Frame-level", "Phone-level"], ["Added PostNet", "Absent", "Residual convolutional PostNet"], ["Vocoder", "Parallel WaveGAN", "Universal HiFi-GAN"]], [130,180,189])
     add("Telugu representation limits", "ReportSub")
-    add("Unicode decomposition is a practical phonemic approximation; it is not a linguistically validated finite-state transducer merely because it is deterministic. Anusvara assimilation, loanwords, allophones and contextual pronunciation remain potential errors. The source inventory includes more than the phones observed in one output; fixed claims of '64 symbols' or '84 phones' are not established by the saved results.")
+    add("The Unicode frontend is a phonemic approximation. Anusvara assimilation, loanwords and allophones remain limitations; determinism alone does not establish linguistic validity. Symbol inventories are preserved with the model metadata.")
+    add("Alignment and OOV handling", "ReportSub")
+    add("Review found 82 historical Telugu target/frontend mismatches (73 training, 9 validation), often around dotted initials. Preparation now shares inference word boundaries, and new preprocessing rejects unknown-speech spn instead of labeling it silence. Old targets and audio remain historical evidence; these code fixes do not retrain existing weights.", "ReportSmall")
     add("Normalization and test fidelity", "ReportSub")
-    add("Raw input is preserved separately from normalized text. E3 and T3 retain intentional double spaces in raw_text. A frontend may collapse whitespace during normalization; preservation of the source string does not prove an audible extra pause. Exact Telugu strings are stored in UTF-8 in inference.py and prediction summaries.")
+    add("The frozen UTF-8 test manifest preserves Telugu diacritics and E3/T3 double spaces. Normalization is recorded separately; source spacing does not establish an audible pause.")
 
     section("3", "Data, alignment and experiment protocol")
     story.append(Workflow([
@@ -293,11 +300,11 @@ def main():
     add("Selection implemented in the committed preparation scripts", "ReportSub")
     add("Both scripts default to seed 42, 1-20 second clips, mono 22,050 Hz PCM output, waveform SHA-1 deduplication and speaker-stratified utterance splits. English creates demographic profiles from eight fields; Telugu uses both female and male labels. Split-specific reserves support replenishment after alignment or feature rejection. These defaults describe code, not independently verified final-run settings.")
     add("Required dataset evidence", "ReportSub")
-    add("The target is approximately five training hours and one validation hour per language after trimming and rejection. Verified from preprocess_summary.json and split manifests: English retained 3,359 training utterances (5.000h) across 115 speakers and 674 validation utterances (1.001h) across 114 speakers; Telugu retained 2,164 training utterances (5.000h) and 421 validation utterances (1.000h) across 2 studio speakers. Zero utterance overlap was verified between train and validation splits.")
+    add("The target is approximately five training hours and one validation hour per language after trimming and rejection. Recovered preprocessing summaries report: English retained 3,359 training utterances (5.000h) across 115 speakers and 674 validation utterances (1.001h) across 114 speakers; Telugu retained 2,164 training utterances (5.000h) and 421 validation utterances (1.000h) across 2 studio speakers. The published ID-only manifests confirm zero ID overlap and trained-speaker coverage. Final waveform SHA-1 evidence is incomplete for reserve clips; source preparation statistics separately report zero hash overlap.")
     add("Alignment failure and its correction", "ReportSub")
     add("The earlier reader omitted empty interior pause intervals while audio trimming retained those spans. Subsequent phone boundaries then mapped to earlier frames. The fix reads empty intervals, maps interior silence/gaps to sp, rejects overlaps and checks the pre-slice time span. Equality after slicing is insufficient: a truncated target can still equal an incorrect duration sum.")
     add("Optimization and checkpoint distinction", "ReportSub")
-    add("Committed defaults: batch 16; Adam betas (0.9, 0.98), epsilon 1e-9; warmup 4,000; clipping 1.0; total 60,000; annealing at 30k/45k/55k. The output metadata identifies 8k/13k checkpoints; the supplied CSV histories independently place the lowest validation totals at those steps. Exact run configuration, hardware and elapsed time still require the training run's environment/config records.")
+    add("Committed defaults: batch 16; Adam betas (0.9, 0.98), epsilon 1e-9; warmup 4,000; clipping 1.0; total 60,000; annealing at 30k/45k/55k. The output metadata identifies 8k/13k checkpoints; the supplied CSV histories independently place the lowest validation totals at those steps. The historical environment and elapsed time remain unavailable. New runs save configuration, dataset revision and feature/source fingerprints; resume refuses changed targets.")
 
     for language in ("English", "Telugu"):
         section("4", f"{language}: loss-curve analysis")
@@ -309,7 +316,7 @@ def main():
             add(caption, "ReportSmall")
         if language == "English":
             add("Visual interpretation", "ReportSub")
-            add("The validation total falls rapidly early, reaches its lowest visible region near the early checkpoints, then fluctuates around a plateau. Mel and PostNet validation errors gradually rise after their early decrease while training errors continue falling. This widening generalization gap is consistent with overfitting; more optimizer steps alone are not a remedy.")
+            add("The validation total improves early, reaches its lowest visible region near the early checkpoints, then fluctuates around a plateau. Mel and PostNet validation errors gradually rise after their early decrease while training errors continue falling. This widening generalization gap is consistent with overfitting; more optimizer steps alone are not a remedy.")
         else:
             add("Visual interpretation", "ReportSub")
             add("Training losses fall substantially over the run. Validation improves early and then largely plateaus, with a persistent train/validation gap. Compare each component on its own scale: raw totals sum heterogeneous losses. Lower Telugu losses do not by themselves establish better intelligibility or a causal language advantage.")
@@ -325,6 +332,7 @@ def main():
         improvement = 100 * (float(val_rows[0]["total_loss"]) - float(best["total_loss"])) / float(val_rows[0]["total_loss"])
         add(f"There are {len(train_rows)} training and {len(val_rows)} validation records. The lowest logged validation total is {float(best['total_loss']):.6f} at step {int(best['step']):,}, a {improvement:.2f}% decrease from the first logged validation value. The saved audio metadata selects step {chosen:,}, which matches this minimum.")
         add("Selection and overfitting", "ReportSub")
+        story.append(LossTrend(train_rows, val_rows))
         add("The final checkpoint is not automatically the best generalizing checkpoint. The continuing reduction in training error alongside relatively flat or rising validation errors supports early checkpoint selection. The chosen step has the best logged loss, but perceptual quality still requires free-running listening evaluation. Neither total loss nor a statistically valid duration array establishes correct articulation.")
         add("Log provenance", "ReportSub")
         add(f"Unmodified CSVs are preserved under Results/{language}/metrics/. The audit records their presence, and the report derives tables directly from them. The CSVs do not record all dataset, environment, checkpoint-hash or listening information; these must be supplied separately. Losses from different corpora should not be treated as directly comparable naturalness scores.")
@@ -359,8 +367,19 @@ def main():
             energy = row["energy"]
             table([["Saved measurement", "Value"], ["Tokens / expansion / duration", f"{count} / {row['total_frames']} frames / {seconds:.3f} seconds"], ["F0 token mean [range]", f"{statistics.mean(pitch):.2f} [{min(pitch):.2f}, {max(pitch):.2f}] Hz"], ["Energy token mean [range]", f"{statistics.mean(energy):.2f} [{min(energy):.2f}, {max(energy):.2f}]"], ["Zero-duration tokens / explicit pause", f"{zero} tokens / {pause} frames ({pause * 256 / 22050:.3f} s)"]], [192,307])
             story.append(Prosody(row))
+            audio_path = ROOT / "Results" / language / "test_generated_audios" / f"{sample_id}.wav"
+            strip = AudioStrip(audio_path)
+            story.append(strip)
+            measurements = strip.metrics
+            add(f"Waveform measurement: RMS {measurements['rms_dbfs']:.1f} dBFS; peak {measurements['peak_dbfs']:.1f} dBFS; {measurements['saturated_samples']} full-scale samples. The spectrogram describes generated acoustic structure and does not establish correct words.", "ReportSmall")
             add(analyses[sample_id])
-            add("Interpretation limits: token means are unweighted, not waveform-measured F0 or loudness. Interpolated continuous F0 includes originally unvoiced regions. Predictor curves cannot certify intelligibility. No independent listening rating has been supplied for this sample.", "ReportSmall")
+            note = review["samples"][sample_id]
+            if note["intelligibility"] == "pending":
+                add("Listening observation: pending. A reviewer must assess pronunciation, completeness and prosody for this exact WAV. Predicted continuous F0 includes interpolated unvoiced regions; token means are unweighted.", "ReportSmall")
+            else:
+                add("Listening observation (" + html.escape(note["reviewer"]) + "): " + html.escape(" | ".join([note["intelligibility"], note["pronunciation"], note["completeness"], note["prosody"]])), "ReportSmall")
+            url = f"https://github.com/SandeshAwate6055/FastSpeech2-English-Telugu/blob/main/Results/{language}"
+            add(f'<link href="{url}/test_generated_audios/{sample_id}.wav" color="#008477">Open {sample_id} audio</link> | <link href="{url}/variance_predictions_summary.json" color="#008477">Raw text and prediction arrays</link>', "ReportSmall")
 
     section("6", "Comparison, limitations and quality review")
     table([["Dimension", "English", "Telugu"], ["Source character", "Accent-diverse ASR corpus; multiple demographic profiles", "Studio TTS corpus; two source voices"], ["Submitted synthesis", "Step 8,000; speaker 14", "Step 13,000; speaker 0"], ["Frontend risk", "OOVs, conduct stress, dates and loanwords", "Clusters, vowel length, anusvara and number grammar"], ["Interpretation", "Cannot separate accent/noise/speaker effects from model performance", "Lower visual losses do not independently prove superior speech"]], [109,195,195])
@@ -369,7 +388,7 @@ def main():
     add("No unmeasured results", "ReportSub")
     add("This report does not claim MOS, ASR WER, speaker similarity, stress correctness or natural pronunciation without measurements/listening records. The saved artifacts establish waveform existence and predictor values. Speech quality is still an open evaluation item until reviewed. The submission checker verifies structure, text and numerical consistency, not perceptual quality.")
     add("Prioritized improvements", "ReportSub")
-    add("First recover selected model bundles and source logs. Then validate source audio/alignments and speaker identities, review pronunciation frontends, and choose checkpoints on held-out free-running speech. Only after these checks consider stronger alignment models, context-sensitive pronunciations, richer pitch modeling or vocoder adaptation. More training is useful only when held-out behavior improves.")
+    add("Selected local checkpoints and source logs are available. First recover missing reserve hashes and inspect the 82 Telugu target mismatches. Review every WAV using the provided audio reviewer, then diagnose alignments/speakers and choose new checkpoints on held-out free-running speech. Only after these checks consider stronger alignment models, context-sensitive pronunciations, richer pitch modeling or vocoder adaptation. More training is useful only when held-out behavior improves.")
     add("Assignment completion status", "ReportSub")
     add(f"The structural audit checks ten WAVs, thirty variance plots, four loss images, raw-text equality, predictor lengths, duration sums and audio format. It currently reports {len(findings['submission_blockers'])} missing-evidence items. Refer to Results/submission_audit.json and model_artifacts.json; do not call the project fully reproducible while these items remain unresolved.")
     for blocker in findings["submission_blockers"]:
@@ -377,12 +396,16 @@ def main():
 
     section("7", "Reproducibility and evaluator access")
     add("Selected model bundles", "ReportSub")
-    add('Owner-supplied artifact folder: <link href="https://drive.google.com/drive/folders/1WsR1NHhzpkLvk3V0g8X3Jy-xsXNlsYHf?usp=sharing" color="#008477">Google Drive model and experiment artifacts</link>. Verified publicly accessible without authentication. All checkpoints (steps 5,000 through 60,000 plus best_val), preprocessed data archives, logs, and vocoder diagnostics are confirmed.', "ReportSmall")
-    add("Provide the exact English 8,000-step and Telugu 13,000-step checkpoints used for the audio, together with the run's config.yaml, stats.json, speakers.json, generated lexicon and exact text frontend/symbol inventory. Checkpoint weights alone cannot reconstruct speaker IDs or normalized predictor outputs. The 60,000-step checkpoints are a separate experiment artifact unless used explicitly for new outputs.")
+    add('Owner-supplied artifact folder: <link href="https://drive.google.com/drive/folders/1WsR1NHhzpkLvk3V0g8X3Jy-xsXNlsYHf?usp=sharing" color="#008477">Google Drive model and experiment artifacts</link>. Historical artifact links are recorded in model_artifacts.json. ' + model_verification + ' Public Drive access was not rechecked in this network-restricted revision.', "ReportSmall")
+    registry = json.loads((ROOT / "model_artifacts.json").read_text(encoding="utf-8"))
+    for language in ("English", "Telugu"):
+        item = registry[language]
+        add(f'<link href="{html.escape(item["download_url"], quote=True)}" color="#008477">{language} / step {item["checkpoint_step"]:,}: download checkpoint</link>', "ReportSmall")
+    add("Restore the published small metadata bundle with python tools/restore_artifacts.py. Add --download for missing checksum-verified acoustic/vocoder weights; Drive may require a manual browser download. Metadata is under Results/Language/metadata; source snapshots are labeled as recovered evidence, not a proven training commit.", "ReportSmall")
     add("Inference after restoring the matching model bundle", "ReportSub")
     for language, step, speaker in [("English",8000,14),("Telugu",13000,0)]:
-        add(f"cd {language}<br/>python inference.py --config config.yaml<br/>&#160; --ckpt_file checkpoints/{step}.pth.tar<br/>&#160; --preprocessed_path preprocessed_data<br/>&#160; --speaker_id {speaker}<br/>&#160; --result_path ../Results/{language}", "ReportCode")
-    add("Each displayed invocation is one shell command; join its wrapped lines. Use the supplied bundle's configuration, not an assumed historical configuration. Full data preparation/alignment/training commands and the train-only Telugu alignment recipe are in README.md.", "ReportSmall")
+        add(f"python {language}/inference.py --config {language}/config.yaml<br/>&#160; --ckpt_file {language}/checkpoints/{step}.pth.tar<br/>&#160; --speaker_id {speaker} --result_path experiments/review/{language}", "ReportCode")
+    add("Run from the repository root; join wrapped command lines. Configuration paths resolve relative to their YAML file. Use new result directories to preserve supplied audio. Fresh alignment, feature validation, 64-clip diagnostic, held-out pilots and optional full training are implemented in the Colab notebook.", "ReportSmall")
     add("Environment and evidence", "ReportSub")
     add("The acoustic requirements file uses lower version bounds; it is not an environment lock. Export the actual training environment and CUDA/PyTorch versions with the original logs. Report generation uses reportlab, Pillow and pypdfium2. Rebuild with python Report/generate_report.py; audit with python tools/audit_submission.py --strict.")
     add("References", "ReportSub")
@@ -399,8 +422,12 @@ def main():
     temporary = OUT / "Technical_Report.build.pdf"
     doc = SimpleDocTemplate(str(temporary), pagesize=(595.276,841.89), rightMargin=48, leftMargin=48, topMargin=53, bottomMargin=46, title="FastSpeech 2 for English and Telugu - Technical Report", author="FastSpeech2-English-Telugu project")
     doc.build(story, onFirstPage=footer, onLaterPages=footer)
+    import pypdfium2 as pdfium
+    with pdfium.PdfDocument(str(temporary)) as rendered:
+        if len(rendered) != 20:
+            raise RuntimeError(f"Report must contain 20 pages; generated {len(rendered)}. Inspect the build PDF before publishing.")
     temporary.replace(destination)
-    (ROOT / "Results" / "submission_audit.json").write_text(json.dumps(findings, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    (ROOT / "Results" / "submission_audit.json").write_text(json.dumps(audit(), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"Generated {destination}")
 
 

@@ -1,0 +1,24 @@
+{
+  "dataset": "SPRINGLab/IndicTTS_Telugu",
+  "language": "Telugu",
+  "sampling_rate": 22050,
+  "seed": 42,
+  "duration_filter_sec": [
+    1.0,
+    20.0
+  ],
+  "train_utterances": 1902,
+  "val_utterances": 361,
+  "reserve_train_utterances": 290,
+  "reserve_val_utterances": 84,
+  "train_hours_pre_align": 5.002,
+  "val_hours_pre_align": 1.004,
+  "reserve_train_hours": 0.752,
+  "reserve_val_hours": 0.2,
+  "train_speakers": 2,
+  "val_speakers": 2,
+  "lexicon_words": 14385,
+  "id_overlap": 0,
+  "sha1_overlap": 0,
+  "rejected_clips": 967
+}

@@ -1,4 +1,8 @@
 import argparse
+from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
+from run_support import load_config
 import glob
 import json
 import os
@@ -211,11 +215,17 @@ def run_inference(args, configs):
                 args.speaker_id = int(spk_map[best_spk_name])
                 print(f"Auto-selected English speaker profile: {best_spk_name} (speaker_id={args.speaker_id}, {best_cnt} training clips)")
 
+    with open(spk_path := os.path.join(preprocess_config["path"]["preprocessed_path"], "speakers.json"), encoding="utf-8") as source:
+        valid_speakers = set(json.load(source).values())
+    if args.speaker_id not in valid_speakers:
+        raise ValueError(f"Unknown speaker_id {args.speaker_id}; see {spk_path}")
     model = get_model(args, configs, device, train=False)
     vocoder = get_vocoder(model_config, device)
 
     result_dir = train_config["path"]["result_path"]
     audio_out_dir = os.path.join(result_dir, "test_generated_audios")
+    if os.path.exists(os.path.join(result_dir, "variance_predictions_summary.json")) and not getattr(args, "overwrite", False):
+        raise FileExistsError("Results already exist. Choose a new result_path or explicitly pass --overwrite.")
     os.makedirs(audio_out_dir, exist_ok=True)
 
     stats_path = os.path.join(preprocess_config["path"]["preprocessed_path"], "stats.json")
@@ -299,6 +309,7 @@ if __name__ == "__main__":
     parser.add_argument("--result_path", type=str, default=None)
     parser.add_argument("--preprocessed_path", type=str, default=None)
     parser.add_argument("--speaker_id", type=int, default=0)
+    parser.add_argument("--overwrite", action="store_true", help="Explicitly permit replacing an existing inference result set")
     parser.add_argument("--text", type=str, default=None, help="Optional single sentence override")
     parser.add_argument("--sample_id", type=str, default="custom")
     parser.add_argument("--pitch_control", type=float, default=1.0)
@@ -306,8 +317,7 @@ if __name__ == "__main__":
     parser.add_argument("--duration_control", type=float, default=1.0)
     args = parser.parse_args()
 
-    with open(args.config, "r", encoding="utf-8") as f:
-        unified = yaml.load(f, Loader=yaml.FullLoader)
+    unified = load_config(args.config)
     if args.ckpt_path is not None:
         unified["path"]["ckpt_path"] = args.ckpt_path
     if args.result_path is not None:

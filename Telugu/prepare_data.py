@@ -26,7 +26,7 @@ from datasets import Audio, load_dataset
 from scipy.io import wavfile
 from tqdm import tqdm
 
-from text.cleaners import telugu_cleaners, telugu_word_to_phones
+from text.cleaners import telugu_cleaners, telugu_word_to_phones, telugu_words
 
 
 def main():
@@ -41,13 +41,16 @@ def main():
     parser.add_argument("--max_dur", type=float, default=20.0)
     parser.add_argument("--sr", type=int, default=22050)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--revision", default=None, help="Optional Hugging Face dataset revision; resolved SHA is recorded")
     args = parser.parse_args()
 
     os.makedirs(args.raw_dir, exist_ok=True)
     os.makedirs(os.path.dirname(args.lexicon_path), exist_ok=True)
 
-    print("Loading SPRINGLab/IndicTTS_Telugu from Hugging Face ...")
-    ds_dict = load_dataset("SPRINGLab/IndicTTS_Telugu")
+    from huggingface_hub import HfApi
+    revision = HfApi().dataset_info("SPRINGLab/IndicTTS_Telugu", revision=args.revision, token=os.environ.get("HF_TOKEN")).sha
+    print("Loading SPRINGLab/IndicTTS_Telugu at revision", revision)
+    ds_dict = load_dataset("SPRINGLab/IndicTTS_Telugu", revision=revision)
     split_name = list(ds_dict.keys())[0]
     ds = ds_dict[split_name]
     audio_col = "audio" if "audio" in ds.column_names else "audio_filepath"
@@ -75,7 +78,7 @@ def main():
         for i in val_part:
             val_candidates.append((i, spk_id))
 
-    # Interleave female and male candidates so both speakers are balanced in train & val
+    # Shuffle the speaker-stratified pools; this does not enforce exact per-voice duration balance.
     random.shuffle(train_candidates)
     random.shuffle(val_candidates)
 
@@ -101,8 +104,7 @@ def main():
                 continue
 
             cleaned_text = telugu_cleaners(raw_text)
-            words = [w.strip(".,?!;:\"'()-") for w in cleaned_text.split()]
-            words = [w for w in words if any("\u0C00" <= c <= "\u0C7F" for c in w)]
+            words = telugu_words(cleaned_text)
             if not words:
                 rejections.append({"id": utt_id, "reason": "no_telugu_words"})
                 continue
@@ -210,6 +212,7 @@ def main():
 
     stats = {
         "dataset": "SPRINGLab/IndicTTS_Telugu",
+        "dataset_revision": revision,
         "language": "Telugu",
         "sampling_rate": args.sr,
         "seed": args.seed,

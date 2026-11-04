@@ -20,6 +20,10 @@ def sha256(path):
 
 
 def test_sentences(language):
+    return json.loads((ROOT / "Results" / "test_sentences.json").read_text(encoding="utf-8"))[language]
+
+
+def declared_sentences(language):
     tree = ast.parse((ROOT / language / "inference.py").read_text(encoding="utf-8"))
     name = f"{language.upper()}_TEST_SENTENCES"
     for statement in tree.body:
@@ -38,6 +42,8 @@ def audit():
     for language in LANGUAGES:
         directory = ROOT / "Results" / language
         sentences = test_sentences(language)
+        if declared_sentences(language) != sentences:
+            errors.append(f"{language}: inference inputs differ from independently frozen assignment text")
         summary_path = directory / "variance_predictions_summary.json"
         summary = json.loads(summary_path.read_text(encoding="utf-8"))
         if set(summary) != set(sentences):
@@ -60,7 +66,7 @@ def audit():
             with wave.open(str(audio), "rb") as source:
                 audio_info = {"sample_rate": source.getframerate(), "channels": source.getnchannels(), "sample_width": source.getsampwidth(), "samples": source.getnframes()}
             audio_info["seconds"] = audio_info["samples"] / audio_info["sample_rate"]
-            checks["audio_format"] = audio_info["sample_rate"] == 22050 and audio_info["channels"] == 1 and audio_info["samples"] > 0
+            checks["audio_format"] = audio_info["sample_rate"] == 22050 and audio_info["channels"] == 1 and audio_info["sample_width"] == 2 and audio_info["samples"] > 0
             checks["audio_frames_match"] = abs(audio_info["samples"] - row["total_frames"] * 256) <= 256
             for kind in ("duration", "pitch", "energy"):
                 checks[f"{kind}_plot_exists"] = (directory / "variance_adaptor_plots" / kind / f"{sample_id}_{kind}.png").is_file()
@@ -74,7 +80,7 @@ def audit():
         artifact = registry[language]
         if not (ROOT / artifact["checkpoint_file"]).is_file() and not artifact["download_url"]:
             blockers.append(f"{language}: selected {artifact['checkpoint_step']}-step checkpoint has no local file or download URL")
-        metadata = ROOT / artifact["metadata_directory"]
+        metadata = ROOT / artifact["published_metadata_directory"]
         if not all((metadata / name).is_file() for name in ("stats.json", "speakers.json")) and not artifact["metadata_download_url"]:
             blockers.append(f"{language}: matching inference metadata is unavailable")
         for filename in ("train_losses.csv", "val_losses.csv"):
@@ -83,9 +89,8 @@ def audit():
         if not (metadata / "preprocess_summary.json").is_file():
             blockers.append(f"{language}: retained-hour/split evidence not included")
         result["languages"][language] = {"checkpoint_step": artifact["checkpoint_step"], "speaker_id": artifact["speaker_id"], "samples": records}
-    result["artifacts_valid"] = not errors
-    result["submission_ready"] = not errors and not blockers
-    return result
+    from audit_evidence import extend_audit
+    return extend_audit(ROOT, result, registry)
 
 
 def main():
@@ -93,7 +98,10 @@ def main():
     parser.add_argument("--strict", action="store_true")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
-    result = audit()
+    try:
+        result = audit()
+    except (OSError, ValueError, KeyError, StopIteration) as exc:
+        result = {"errors": [f"Audit input failure: {exc}"], "submission_blockers": [], "artifacts_valid": False, "submission_ready": False}
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

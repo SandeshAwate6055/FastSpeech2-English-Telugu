@@ -1,0 +1,20 @@
+{
+  "source_checkout": "e5e1f4b",
+  "note": "Recovered local metadata plus source snapshot; source checkout is not independently established as the training commit. Missing reserve audio hashes are explicit blank fields.",
+  "files": {
+    "data_stats.json": "fcbeb77a28c0436c3c38d8ed91e8ec72da37f41cf0b054186e7fa65945496603",
+    "preprocess_summary.json": "614d104c546c6fbd1602f86094bb12f54d2542329e69d36d52d360bfd2c20ffb",
+    "selected_manifest.csv": "25233ccd6a914202c1c040f1977478e1dcf9134ae7a9ecf42cbbf0540da4ad4e",
+    "source_snapshot/config.yaml": "73676b4d0ec491affd7df1956104c2623ca071bcf8f7d239705b53a2b612c978",
+    "source_snapshot/hifigan/config.json": "719a04c531031802c3da7207e5093057d5f2d7c6b0a457c77041d01bb7d93c6e",
+    "source_snapshot/lexicon/telugu-lexicon.txt": "504fe994b6f5bd904270fcff00f5a3fe7c3176db0ab1c634e2e0aac7f543d467",
+    "source_snapshot/text/__init__.py": "e927c0aa6bd7816e3b7b3cb379fbdf11989ac0de9d9b7d077bbd81649b305d81",
+    "source_snapshot/text/cleaners.py": "abf324b882d808e05152102295deade6adccaae3a73175f76a20ae31459d86c1",
+    "source_snapshot/text/cmudict.py": "e2c6a1c7246aaed2508b75da3ec1471ca5810f8bfe76534af5c228d0963e85fe",
+    "source_snapshot/text/numbers.py": "233f7446707c6e4313ddef7d4225af89b7f2263884e8836ede5e9081902124d4",
+    "source_snapshot/text/pinyin.py": "dbd50dee0bc04ce6cbc0a03b009a4e59767f1a726232448334ec1a01c323c003",
+    "source_snapshot/text/symbols.py": "5482adb5ceefa6babab217a02b77c845d921f9f45c6772f9af6249f66f72ad3e",
+    "speakers.json": "fb3b6294e83e1cfcdbc5b2dc7767894c532944afa04fc19f2fa31086094fb4a2",
+    "stats.json": "3be9a07ce46ae85174aa02238fa2642eb21be8bd63532bc2eddcf369f7d5e89e"
+  }
+}

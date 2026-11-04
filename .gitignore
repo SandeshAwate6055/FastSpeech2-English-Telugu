@@ -9,6 +9,8 @@
 .DS_Store
 Report/preview/
 Report/Technical_Report.build.pdf
+experiments/
+**/*.part
 
 # Ignore local uncompressed vocoder weights, checkpoints, and generated MFA dictionary
 **/hifigan/*.pth.tar
@@ -16,3 +18,4 @@ Report/Technical_Report.build.pdf
 **/checkpoints/*.pth.tar
 !**/checkpoints/.gitkeep
 **/lexicon/english_svarah_mfa.dict
+!Results/English/metadata/source_snapshot/lexicon/english_svarah_mfa.dict

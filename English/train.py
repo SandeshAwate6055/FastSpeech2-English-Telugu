@@ -1,4 +1,8 @@
 import argparse
+from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
+from run_support import load_config
 import csv
 import os
 
@@ -169,10 +173,17 @@ def main(args, configs):
 
     preprocess_config, model_config, train_config = configs
 
+    from run_support import ensure_run_provenance, require_feature_validation
+    require_feature_validation(preprocess_config["path"]["preprocessed_path"], train_config.get("diagnostic_subset", False))
+    if args.restore_step >= train_config["step"]["total_step"]:
+        raise ValueError("total_step must be greater than restore_step")
+    args.provenance_sha256 = ensure_run_provenance(Path(__file__).resolve().parent, configs, args.restore_step)
     dataset = Dataset(
         "train.txt", preprocess_config, train_config, sort=True, drop_last=True
     )
     batch_size = train_config["optimizer"]["batch_size"]
+    if len(dataset) < batch_size:
+        raise ValueError("Training split must contain at least one complete batch")
     group_size = 4
     eff_group_size = group_size if batch_size * group_size < len(dataset) else 1
     loader = DataLoader(
@@ -315,6 +326,7 @@ def main(args, configs):
                                 "model": model.module.state_dict(),
                                 "optimizer": optimizer._optimizer.state_dict(),
                                 "step": step,
+                                "provenance_sha256": args.provenance_sha256,
                                 "val_loss": best_val_loss,
                             },
                             os.path.join(train_config["path"]["ckpt_path"], "best_val.pth.tar"),
@@ -327,6 +339,7 @@ def main(args, configs):
                             "model": model.module.state_dict(),
                             "optimizer": optimizer._optimizer.state_dict(),
                             "step": step,
+                            "provenance_sha256": args.provenance_sha256,
                         },
                         os.path.join(
                             train_config["path"]["ckpt_path"],
@@ -370,19 +383,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.preprocess_config and args.model_config and args.train_config:
-        preprocess_config = yaml.load(
-            open(args.preprocess_config, "r", encoding="utf-8"), Loader=yaml.FullLoader
-        )
-        model_config = yaml.load(
-            open(args.model_config, "r", encoding="utf-8"), Loader=yaml.FullLoader
-        )
-        train_config = yaml.load(
-            open(args.train_config, "r", encoding="utf-8"), Loader=yaml.FullLoader
-        )
+        preprocess_config = load_config(args.preprocess_config)
+        model_config = load_config(args.model_config)
+        train_config = load_config(args.train_config)
     else:
-        unified = yaml.load(
-            open(args.config, "r", encoding="utf-8"), Loader=yaml.FullLoader
-        )
+        unified = load_config(args.config)
         preprocess_config = model_config = train_config = unified
 
     if args.total_step is not None:

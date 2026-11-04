@@ -17,7 +17,9 @@ def get_model(args, configs, device, train=False):
     model = FastSpeech2(preprocess_config, model_config).to(device)
     ckpt = None
     ckpt_file = getattr(args, "ckpt_file", None)
-    if ckpt_file and os.path.exists(ckpt_file):
+    if ckpt_file and not os.path.isfile(ckpt_file):
+        raise FileNotFoundError(f"Requested checkpoint does not exist: {ckpt_file}")
+    if ckpt_file:
         ckpt = torch.load(ckpt_file, map_location=device, weights_only=False)
         model.load_state_dict(ckpt["model"])
         if not getattr(args, "restore_step", 0) and "step" in ckpt:
@@ -30,6 +32,15 @@ def get_model(args, configs, device, train=False):
         ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
         model.load_state_dict(ckpt["model"])
 
+    if not train and ckpt is None:
+        raise RuntimeError("Inference requires trained checkpoint weights; random initialization is not permitted.")
+    if ckpt is not None:
+        checkpoint_step = int(ckpt.get("step", getattr(args, "restore_step", 0)))
+        if getattr(args, "restore_step", 0) and checkpoint_step != args.restore_step:
+            raise ValueError("Requested step disagrees with checkpoint contents")
+        args.restore_step = checkpoint_step
+        if train and ckpt.get("provenance_sha256") != getattr(args, "provenance_sha256", None):
+            raise RuntimeError("Checkpoint provenance does not match this experiment")
     if train:
         scheduled_optim = ScheduledOptim(
             model, train_config, model_config, getattr(args, "restore_step", 0)
@@ -40,7 +51,7 @@ def get_model(args, configs, device, train=False):
         return model, scheduled_optim
 
     model.eval()
-    model.requires_grad_ = False
+    model.requires_grad_(False)
     return model
 
 

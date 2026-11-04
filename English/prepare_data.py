@@ -1,7 +1,7 @@
 """
 Phase 2 & 3: English Dataset Preparation & Speaker-Stratified Splitting (ai4bharat/Svarah)
-- Downloads Svarah (commit verified in Phase 0 audit)
-- Assigns deterministic 7-field speaker group IDs (115 speaker groups across 6,656 clips)
+- Resolves and records the Svarah dataset revision before download
+- Assigns deterministic 8-field demographic profile IDs (115 speaker groups across 6,656 clips)
 - Filters clips (1.0s to 20.0s, clean text, valid audio energy, SHA-1 audio deduplication)
 - Creates speaker-stratified, utterance-disjoint splits (~5.0h train + ~1.0h val + reserves)
   ensuring every validation speaker is present in training and zero overlap
@@ -71,14 +71,17 @@ def main():
     parser.add_argument("--sr", type=int, default=22050)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--hf_token", type=str, default=None)
+    parser.add_argument("--revision", default=None, help="Optional Hugging Face dataset revision; resolved SHA is recorded")
     args = parser.parse_args()
 
     os.makedirs(args.raw_dir, exist_ok=True)
     os.makedirs(os.path.dirname(args.out_lexicon), exist_ok=True)
     token = args.hf_token or os.environ.get("HF_TOKEN")
 
-    print("Loading ai4bharat/Svarah from Hugging Face ...")
-    ds = load_dataset("ai4bharat/Svarah", split="test", token=token)
+    from huggingface_hub import HfApi
+    revision = HfApi().dataset_info("ai4bharat/Svarah", revision=args.revision, token=args.hf_token or os.environ.get("HF_TOKEN")).sha
+    print("Loading ai4bharat/Svarah at revision", revision)
+    ds = load_dataset("ai4bharat/Svarah", split="test", token=token, revision=revision)
     audio_col = "audio_filepath" if "audio_filepath" in ds.column_names else "audio"
     ds = ds.cast_column(audio_col, Audio(decode=False))
 
@@ -271,6 +274,7 @@ def main():
 
     stats = {
         "dataset": "ai4bharat/Svarah",
+        "dataset_revision": revision,
         "language": "English",
         "sampling_rate": args.sr,
         "seed": args.seed,

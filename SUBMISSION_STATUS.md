@@ -1,86 +1,61 @@
-# Assignment Completion and Submission Verification Status
+# Assignment requirements and current evidence
 
-This document records the strict compliance audit, model artifact provenance, and delivery verification for the FastSpeech 2 English and Telugu Text-to-Speech assignment.
+The assignment specification is authoritative. This file separates checked artifacts from evidence that still needs recovery or listening review. Updated 4 November 2026.
 
----
+## Requirement matrix
 
-## 1. Compliance Audit Summary
+| Requirement | Evidence | Current status |
+|---|---|---|
+| Separate English/Svarah and Telugu/IndicTTS models | Language implementations, configs and selected checkpoint registry | Local selected checkpoint hashes match; live external links not rechecked |
+| Approximately 5h train / 1h validation per language | Published preprocessing summaries and selected ID manifests in `Results/<Language>/metadata/` | Recovered summaries: English 5.000h/1.001h; Telugu 5.000h/1.000h |
+| No training/validation overlap | Selected manifests and source preparation statistics | Final ID overlap is zero; final reserve audio hashes are incomplete |
+| Complete preprocessing, training and inference code | Required entrypoints and reference-derived modules in both language folders | Confirmed review issues repaired; full GPU execution of this revision remains untested |
+| Ten exact test inputs and WAVs | Frozen `Results/test_sentences.json`, inference constants and prediction summaries | Structural/text/length checks pass; E3/T3 double spaces retained |
+| Thirty duration/F0/energy plots | Required `Results/<Language>/variance_adaptor_plots/` paths | All required images are present and decodable |
+| Four loss curves | Required PNGs plus preserved CSV histories under `metrics/` | 600 training and 60 validation records per language, through 60k steps |
+| Pronunciation and speech-quality observations for every sentence | `Results/listening_review.json`, local `Report/audio_review.html` and report | Pending human review; measurements are not substituted for listening |
+| Detailed technical report | `Report/Technical_Report.pdf` and its generator | 20 pages with diagrams, workflows, losses, ten analyses, measured spectrograms and clickable links |
+| Reproducibility and evaluator access | README quickstart, metadata bundles, checkpoint READMEs, artifact registry and Colab notebook | Local restoration/checks covered; live downloads and full inference need an enabled runtime |
+| Prescribed project folder structure | English/, Telugu/, Results/, Report/, README.md and requirements.txt | Retained; every supporting addition is explained in README |
 
-The submission package has been strictly validated using `tools/audit_submission.py --strict`.
+## Machine audit
 
-- **Audit Status:** Passed (`submission_ready: true`, `artifacts_valid: true`)
-- **Errors:** `0`
-- **Submission Blockers:** `0`
-- **Timestamp:** 2026-11-04
-- **Audit Report:** `Results/submission_audit.json`
+- Structural validity: **passes**.
+- Final submission readiness: **pending**.
+- Machine-detected artifact errors: **0**.
+- Missing required evidence items: **4**, listed below.
+- Full record: [Results/submission_audit.json](Results/submission_audit.json).
 
----
+- English: audio hashes missing for 382 retained reserve utterances; complete final audio-overlap verification is pending
+- English: per-sentence listening observations pending: E1, E2a, E2b, E3, E4
+- Telugu: audio hashes missing for 339 retained reserve utterances; complete final audio-overlap verification is pending
+- Telugu: per-sentence listening observations pending: T1, T2a, T2b, T3, T4
 
-## 2. Requirement-by-Requirement Evidence
+The strict audit exits with a nonzero status until these evidence requirements are satisfied. A nonempty URL or an existing summary file is not treated as proof of model quality or complete dataset disjointness.
 
-| Assignment Requirement | Required Deliverable | Repository Evidence | Verification Status |
-|---|---|---|---|
-| **Dual-Language Acoustic Models** | Separate implementations for English (`Svarah`) and Telugu (`IndicTTS_Telugu`) with distinct frontends | `English/` and `Telugu/` directories with dedicated `train.py`, `preprocess.py`, `inference.py`, `config.yaml`, text cleaners, and symbol inventories; documented in `CHANGES.md` | **Verified** |
-| **Data Partitioning & Subsampling** | ~5.0 hours training, ~1.0 hour validation; speaker-stratified; strictly disjoint splits ($0$ overlap) | Subsampling scripts in `English/preprocess.py` and `Telugu/preprocess.py`; metadata manifests in `preprocessed_data/`: <br>• English: 3,359 train clips (5.000h), 674 val clips (1.001h), 115 speakers, 0 overlap <br>• Telugu: 2,164 train clips (5.000h), 421 val clips (1.000h), 2 speakers, 0 overlap | **Verified** |
-| **Loss Curves & Metrics** | Separate training and validation loss curves showing total, mel, duration, pitch, and energy losses | Preserved source CSV histories (600 train / 60 val entries through 60,000 steps) in `Results/<Language>/metrics/`; plotted curves in `Results/<Language>/{training,validation}_loss.png` | **Verified** |
-| **Mandatory Test Audios** | Synthesized speech for all 5 test inputs per language (10 WAV files total) | 10 WAV files in `Results/<Language>/test_generated_audios/` (`E1`, `E2a`, `E2b`, `E3`, `E4`, `T1`, `T2a`, `T2b`, `T3`, `T4`) at mono 22,050 Hz 16-bit PCM; exact assignment texts preserved | **Verified** |
-| **Variance Adaptor Visualizations** | Duration, pitch (F0), and energy prediction plots for every test sentence (30 plots total) | 30 high-resolution plots under `Results/<Language>/variance_adaptor_plots/{duration,pitch,energy}/` with physical unit scales and alignment markers; full predictions in `variance_predictions_summary.json` | **Verified** |
-| **Trained Model Checkpoints** | Public evaluator access to the exact checkpoints and metadata used to generate test audios | Checkpoints and preprocessed data archives hosted on public Google Drive folder; direct download URLs, file sizes, and SHA-256 hashes recorded in `model_artifacts.json` | **Verified** |
-| **Comprehensive Technical Report** | Structured PDF covering architecture, preprocessing, experiments, loss analysis, per-sentence breakdowns, and limitations | 20-page technical report at `Report/Technical_Report.pdf` with complete system diagrams, mathematical formulations, loss curves, spectrograms, and page-by-page sentence analyses | **Verified** |
+## Checkpoints and inference
 
----
+Use [model_artifacts.json](model_artifacts.json) for both download links, exact filenames, sizes and SHA-256 hashes. Per-language [English](English/checkpoints/README.md) and [Telugu](Telugu/checkpoints/README.md) checkpoint instructions explain the permitted external hosting.
 
-## 3. Model Artifact Provenance & Google Drive Links
+From the repository root:
 
-All trained checkpoints, logs, and preprocessed datasets are publicly accessible without authentication in the shared Google Drive folder:
-- **Shared Folder URL:** [Google Drive Artifacts Folder](https://drive.google.com/drive/folders/1WsR1NHhzpkLvk3V0g8X3Jy-xsXNlsYHf?usp=sharing)
-
-### Verified Artifact Inventory
-
-| Artifact Description | Language | Step / Speaker | Size | SHA-256 Hash | Direct Download Link |
-|---|---|---|---|---|---|
-| **Acoustic Model Checkpoint** | English | Step 8,000 / Spk 14 | 420.5 MB | `b50f0558474eab89e95e8079df23cb3c364e339ce00fe6d88316beb4b86ff49a` | [Download 8000.pth.tar](https://drive.google.com/uc?export=download&id=1asQbbLU4y9qPAHd8Jvu2T1G-5VES6X7P) |
-| **Preprocessed Data Archive** | English | 5h train + 1h val | 527.9 MB | `dee67de261922b2c8de338c58e39065ba849ccef0463ce7171e892932732dd84` | [Download English_preprocessed.tar.gz](https://drive.google.com/uc?export=download&id=1Jed_UntmRMt29ESQY5OOEENB3pAN1Q0s) |
-| **Acoustic Model Checkpoint** | Telugu | Step 13,000 / Spk 0 | 420.9 MB | `49902507629887721818ec180dac2b419609f6c7a9e601c6d767a11233d1baa1` | [Download 13000.pth.tar](https://drive.google.com/uc?export=download&id=1loNuZ9gRVLTobXHzzwZGsDe8KkB_FB-p) |
-| **Preprocessed Data Archive** | Telugu | 5h train + 1h val | 528.1 MB | `f2a7a6cf2baf6d917daf33be1cb85def63103eed321af33beed8a7c9d45c1ba1` | [Download Telugu_preprocessed.tar.gz](https://drive.google.com/uc?export=download&id=1rYjLsdr_YdcSUS23X1DwrqXEOSjwVr9s) |
-
-*Note: The complete 60,000-step training endpoints (`60000.pth.tar`) and intermediate checkpoints (steps 5,000 through 55,000) are also preserved in the shared folder under their respective subdirectories.*
-
----
-
-## 4. Evaluator Quickstart & Reproducibility
-
-### Checkpoint Restoration & Strict Verification
 ```bash
-# Clone the repository
-git clone https://github.com/SandeshAwate6055/FastSpeech2-English-Telugu.git
-cd FastSpeech2-English-Telugu
-
-# Run the strict compliance audit
-python tools/audit_submission.py --strict
+python tools/restore_artifacts.py --download
+python English/inference.py --config English/config.yaml --ckpt_file English/checkpoints/8000.pth.tar --speaker_id 14 --result_path experiments/review/English
+python Telugu/inference.py --config Telugu/config.yaml --ckpt_file Telugu/checkpoints/13000.pth.tar --speaker_id 0 --result_path experiments/review/Telugu
 ```
 
-### Synthesizing Test Sentences
-```bash
-# English Synthesis (Step 8,000, Speaker 14)
-python English/inference.py \
-  --checkpoint_path English/checkpoints/8000.pth.tar \
-  --speaker_id 14 \
-  --text "The quick brown fox jumps over the lazy dog." \
-  --output_path Results/English/test_generated_audios/E1.wav
+The commands synthesize the five fixed inputs per language. Existing result sets require a new output directory or the explicit `--overwrite` flag.
 
-# Telugu Synthesis (Step 13,000, Speaker 0)
-python Telugu/inference.py \
-  --checkpoint_path Telugu/checkpoints/13000.pth.tar \
-  --speaker_id 0 \
-  --text "త్వరగా కదిలే గోధుమ రంగు నక్క సోమరి కుక్కపై నుండి దూకుతుంది." \
-  --output_path Results/Telugu/test_generated_audios/T1.wav
-```
+## Code corrections and historical results
 
----
+Missing-checkpoint fallback, TextDataset cache access, configuration-relative paths, Telugu lexical boundaries, unknown-speech handling and experiment resume checks have been repaired. The notebook preserves dirty checkouts, prepares fresh alignments rather than trusting archive size/counts, and includes diagnostic and pilot listening gates.
 
-## 5. Perceptual Observations and Known Limitations
+The 82 historical Telugu target/frontend mismatches are recorded in [Results/frontend_audit.json](Results/frontend_audit.json). The current code rejects unknown-speech alignments for new runs. The existing checkpoints, WAVs, predictor arrays and loss histories remain historical outputs; they were not retrained or replaced by these changes.
 
-1. **Checkpoint Selection Criteria:** The submitted audio files were generated using the validation-loss minima checkpoints (English Step 8,000, Telugu Step 13,000) rather than the 60,000-step overfitted endpoints.
-2. **Vocoder Domain Transfer:** HiFi-GAN universal vocoder (`generator_universal.pth.tar`) was pre-trained on LJSpeech (22.05 kHz). While robust, fine-tuning HiFi-GAN on Indian English accents and Telugu phonetics would further eliminate mild robotic timbre in unvoiced fricatives.
-3. **Data Distribution:** English training data from Svarah contains Indian English speaker diversity (115 demographic speakers), leading to natural prosodic variation across speaker IDs. Telugu from IndicTTS contains 2 clean studio speakers (female and male), yielding highly consistent pitch tracks.
+## Finish the remaining evidence
+
+1. Recover original reserve manifests or original selected WAVs. Fill blank `audio_sha1` values only from recovered source records or matching resampled/peak-normalized int16 PCM sample bytes (excluding the WAV header). Update bundle checksums and rerun the audit. Never manufacture hashes from utterance names.
+2. Listen to all ten WAVs using the local reviewer. Export actual pronunciation, completeness and prosody observations with reviewer/date and matching audio hashes; replace `Results/listening_review.json` and rebuild the report.
+3. Verify public model links and perform a full inference pass in the enabled Colab/GPU environment. If speech is poor, follow the notebook's fresh-alignment, overfit and held-out pilot gates before extending training.
+4. Run the strict audit and visually inspect the rebuilt report. Submit the public repository URL through the assignment form after reviewing all remaining findings.

@@ -1,4 +1,8 @@
 import argparse
+from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
+from run_support import load_config
 import yaml
 
 from preprocessor.preprocessor import Preprocessor
@@ -22,8 +26,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     config_path = args.pos_config if args.pos_config is not None else args.config
-    with open(config_path, "r", encoding="utf-8") as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
+    config = load_config(config_path)
 
     preprocessor = Preprocessor(config)
     preprocessor.build_from_path()

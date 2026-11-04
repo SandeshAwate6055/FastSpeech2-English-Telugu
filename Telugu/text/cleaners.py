@@ -179,6 +179,11 @@ def telugu_word_to_phones(word: str) -> list:
     return phones
 
 
+def telugu_words(text: str) -> list:
+    """MFA dictionary words use the same Unicode boundaries as inference."""
+    return re.findall(r"[\u0C00-\u0C7F]+", telugu_cleaners(text))
+
+
 def telugu_text_to_phones(text: str) -> list:
     """
     Converts a Telugu sentence into a list of phoneme tokens with 'sp' at punctuation/clause breaks.

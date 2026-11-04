@@ -1,0 +1,378 @@
+{
+  "summary": {
+    "train_utterances": 3359,
+    "val_utterances": 674,
+    "train_hours_retained": 5.0,
+    "val_hours_retained": 1.001,
+    "train_speakers": 115,
+    "val_speakers": 114,
+    "rejected_count": 73
+  },
+  "rejections": [
+    {
+      "id": "svarah_02150",
+      "speaker": "svarah_spk_000",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_02999",
+      "speaker": "svarah_spk_000",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_04008",
+      "speaker": "svarah_spk_000",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_00526",
+      "speaker": "svarah_spk_002",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_01030",
+      "speaker": "svarah_spk_002",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_01131",
+      "speaker": "svarah_spk_002",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_02661",
+      "speaker": "svarah_spk_002",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_03167",
+      "speaker": "svarah_spk_002",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_03787",
+      "speaker": "svarah_spk_002",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_03983",
+      "speaker": "svarah_spk_002",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_05524",
+      "speaker": "svarah_spk_002",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_05586",
+      "speaker": "svarah_spk_002",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_06241",
+      "speaker": "svarah_spk_002",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_00257",
+      "speaker": "svarah_spk_003",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_02207",
+      "speaker": "svarah_spk_003",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_06022",
+      "speaker": "svarah_spk_004",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_01007",
+      "speaker": "svarah_spk_005",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_04499",
+      "speaker": "svarah_spk_006",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_03754",
+      "speaker": "svarah_spk_008",
+      "reason": "all_unvoiced_f0"
+    },
+    {
+      "id": "svarah_00539",
+      "speaker": "svarah_spk_009",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_06590",
+      "speaker": "svarah_spk_012",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_06106",
+      "speaker": "svarah_spk_014",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_01614",
+      "speaker": "svarah_spk_016",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_03068",
+      "speaker": "svarah_spk_018",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_03259",
+      "speaker": "svarah_spk_018",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_04688",
+      "speaker": "svarah_spk_025",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_02928",
+      "speaker": "svarah_spk_026",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_02311",
+      "speaker": "svarah_spk_029",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_03294",
+      "speaker": "svarah_spk_029",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_06368",
+      "speaker": "svarah_spk_030",
+      "reason": "all_unvoiced_f0"
+    },
+    {
+      "id": "svarah_03515",
+      "speaker": "svarah_spk_036",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_01778",
+      "speaker": "svarah_spk_039",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_05768",
+      "speaker": "svarah_spk_039",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_04294",
+      "speaker": "svarah_spk_042",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_04496",
+      "speaker": "svarah_spk_042",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_04005",
+      "speaker": "svarah_spk_044",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_02726",
+      "speaker": "svarah_spk_045",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_01603",
+      "speaker": "svarah_spk_047",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_03903",
+      "speaker": "svarah_spk_047",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_03412",
+      "speaker": "svarah_spk_050",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_03609",
+      "speaker": "svarah_spk_050",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_02349",
+      "speaker": "svarah_spk_052",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_02053",
+      "speaker": "svarah_spk_055",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_03120",
+      "speaker": "svarah_spk_057",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_02490",
+      "speaker": "svarah_spk_058",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_03590",
+      "speaker": "svarah_spk_061",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_04914",
+      "speaker": "svarah_spk_061",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_06271",
+      "speaker": "svarah_spk_061",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_03025",
+      "speaker": "svarah_spk_062",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_01607",
+      "speaker": "svarah_spk_063",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_02313",
+      "speaker": "svarah_spk_064",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_00971",
+      "speaker": "svarah_spk_066",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_02125",
+      "speaker": "svarah_spk_066",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_00562",
+      "speaker": "svarah_spk_067",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_01669",
+      "speaker": "svarah_spk_067",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_03782",
+      "speaker": "svarah_spk_067",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_01224",
+      "speaker": "svarah_spk_074",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_02424",
+      "speaker": "svarah_spk_074",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_03022",
+      "speaker": "svarah_spk_074",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_00408",
+      "speaker": "svarah_spk_075",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_00182",
+      "speaker": "svarah_spk_080",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_06147",
+      "speaker": "svarah_spk_080",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_04981",
+      "speaker": "svarah_spk_082",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_02386",
+      "speaker": "svarah_spk_083",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_01073",
+      "speaker": "svarah_spk_089",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_04076",
+      "speaker": "svarah_spk_091",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_02334",
+      "speaker": "svarah_spk_094",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_02118",
+      "speaker": "svarah_spk_095",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_02899",
+      "speaker": "svarah_spk_095",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_05330",
+      "speaker": "svarah_spk_095",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_02603",
+      "speaker": "svarah_spk_100",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_04628",
+      "speaker": "svarah_spk_110",
+      "reason": "missing_textgrid"
+    },
+    {
+      "id": "svarah_03253",
+      "speaker": "svarah_spk_113",
+      "reason": "missing_textgrid"
+    }
+  ]
+}

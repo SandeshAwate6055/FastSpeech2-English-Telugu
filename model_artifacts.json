@@ -1,8 +1,8 @@
 {
-  "description": "Verified FastSpeech 2 checkpoints and metadata for English (Step 8000 / Speaker 14) and Telugu (Step 13000 / Speaker 0).",
+  "description": "Selected historical acoustic checkpoints, matching recovered metadata, and current verification limits.",
   "shared_folder_url": "https://drive.google.com/drive/folders/1WsR1NHhzpkLvk3V0g8X3Jy-xsXNlsYHf?usp=sharing",
-  "shared_folder_access_verified": true,
-  "shared_folder_status": "Verified public Google Drive repository containing all checkpoints, logs, preprocessed archives, and vocoder diagnostics.",
+  "shared_folder_access_verified": false,
+  "shared_folder_status": "Owner-supplied folder and historical download links; live access requires an independent check.",
   "English": {
     "checkpoint_step": 8000,
     "speaker_id": 14,
@@ -17,10 +17,14 @@
       "stats.json",
       "speakers.json",
       "preprocess_summary.json",
-      "config.yaml",
-      "lexicon/english_svarah_mfa.dict",
-      "text/symbols.py"
-    ]
+      "selected_manifest.csv",
+      "source_snapshot/config.yaml",
+      "source_snapshot/text/symbols.py",
+      "source_snapshot/text/cleaners.py",
+      "source_snapshot/lexicon/english_svarah_mfa.dict"
+    ],
+    "published_metadata_directory": "Results/English/metadata",
+    "vocoder_sha256": "771eaf4876485a35e25577563d390c262e23c2421e4a8c929eacfde34a5b7a60"
   },
   "Telugu": {
     "checkpoint_step": 13000,
@@ -36,9 +40,14 @@
       "stats.json",
       "speakers.json",
       "preprocess_summary.json",
-      "config.yaml",
-      "text/symbols.py",
-      "text/cleaners.py"
-    ]
-  }
+      "selected_manifest.csv",
+      "source_snapshot/config.yaml",
+      "source_snapshot/text/symbols.py",
+      "source_snapshot/text/cleaners.py",
+      "source_snapshot/lexicon/telugu-lexicon.txt"
+    ],
+    "published_metadata_directory": "Results/Telugu/metadata",
+    "vocoder_sha256": "771eaf4876485a35e25577563d390c262e23c2421e4a8c929eacfde34a5b7a60"
+  },
+  "verification_note": "Local checkpoint bytes were hashed during this revision. Prior Drive accessibility claims have not been reverified in this network-restricted session."
 }

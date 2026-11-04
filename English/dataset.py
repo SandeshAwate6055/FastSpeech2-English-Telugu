@@ -152,6 +152,7 @@ class Dataset(Dataset):
 
 class TextDataset(Dataset):
     def __init__(self, filepath, preprocess_config):
+        self._cache = {}
         self.cleaners = preprocess_config["preprocessing"]["text"]["text_cleaners"]
 
         self.basename, self.speaker, self.text, self.raw_text = self.process_meta(

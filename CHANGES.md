@@ -47,3 +47,15 @@ This log describes implementation changes, not proof that every historical run u
 - Added model_artifacts.json, a standard-library submission audit, separate report dependencies and a page-rendering utility.
 - Corrected README preparation/alignment/inference commands; distinguished dependency lower bounds from an environment lock.
 - Download access, actual final manifests/run metadata and listening observations remain explicit requirements.
+
+## Assignment review and presentation revision (4 November 2026)
+
+- Inference now fails on missing/untrained weights and inconsistent checkpoint steps; result replacement requires `--overwrite`. TextDataset initializes its cache. Masks follow the input tensor device.
+- Entry points resolve YAML paths relative to the config file. New training runs fingerprint feature bytes, metadata, source modules and model/optimizer settings; fresh-run overwrite and incompatible/legacy resume are refused.
+- Telugu preparation shares Unicode word boundaries with inference, including dotted initials. Unknown-speech `spn` is rejected rather than mapped to silence. Historical phone mismatches are recorded, not silently rewritten.
+- Both preparation scripts record resolved Hugging Face dataset revisions. Manifest parsing rejects malformed/duplicate IDs and primary/reserve overlap. The retained-hour floor is closer to the assignment's approximate 5h/1h target.
+- Replaced archive-size/TextGrid-count restoration and destructive git checkout with an explicit evaluate-or-train notebook. Fresh alignment, selected-feature verification, 64-clip diagnostics, 5k pilots and held-out audio review precede optional production training.
+- Published checksum-inventoried metadata and selected ID/hash manifests under Results. Missing reserve hashes are explicit. Frozen test text is independently checked; strict audit readiness now includes evidence coverage and matching human listening records.
+- Rebuilt the 20-page report with a branching architecture, clickable contents/model/audio links, full data workflow, loss-gap charts, ten waveform/spectrogram views and per-input variance analysis. No unmeasured listening claims are added.
+- README now includes Mermaid flows, expandable exact inputs/losses, all result links, valid root-directory commands, evaluator downloads and an explicit inventory of supporting files.
+- Added an offline audio/plot reviewer that exports dated observations tied to audio hashes. Added focused regressions for the costly failure modes. Original checkpoint/audio/plot/CSV results are preserved.

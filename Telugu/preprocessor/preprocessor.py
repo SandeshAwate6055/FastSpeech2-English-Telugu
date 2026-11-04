@@ -69,8 +69,11 @@ class Preprocessor:
             with open(p, "r", encoding="utf-8") as f:
                 for line in f:
                     parts = line.rstrip("\r\n").split("|", 4)
-                    if len(parts) == 5 and parts[0].strip():
-                        ids.append(parts[0].strip())
+                    if len(parts) != 5 or not parts[0].strip():
+                        raise ValueError(f"Malformed split manifest: {p}")
+                    if parts[0].strip() in ids:
+                        raise ValueError(f"Duplicate utterance in {p}: {parts[0]}")
+                    ids.append(parts[0].strip())
             return ids
 
         train_ids = _read_ids(train_list_path)
@@ -78,6 +81,8 @@ class Preprocessor:
         res_train_ids = _read_ids(reserve_train_path)
         res_val_ids = _read_ids(reserve_val_path)
 
+        if set(train_ids) & set(res_train_ids) or set(val_ids) & set(res_val_ids):
+            raise ValueError("Primary and reserve manifests overlap")
         all_train = set(train_ids) | set(res_train_ids)
         all_val = set(val_ids) | set(res_val_ids)
         overlap = all_train.intersection(all_val)
@@ -271,7 +276,7 @@ class Preprocessor:
             f"Retained hours -> Train: {train_hours:.2f}h ({len(train_out)} clips), "
             f"Val: {val_hours:.2f}h ({len(val_out)} clips), Rejected: {len(rejections)}"
         )
-        if len(train_out) == 0 or len(val_out) == 0 or train_hours < 4.0 or val_hours < 0.7:
+        if len(train_out) == 0 or len(val_out) == 0 or train_hours < 4.5 or val_hours < 0.85:
             import collections
             reasons = collections.Counter(r["reason"].split(":")[0] for r in rejections)
             raise RuntimeError(
@@ -287,6 +292,12 @@ class Preprocessor:
             for m in val_out:
                 f.write(m + "\n")
 
+        selected = []
+        for split, entries in [("train", selected_train_files), ("val", selected_val_files)]:
+            for spk, uid in sorted(entries):
+                selected.append({"id": uid, "speaker": spk, "split": split, "frames": processed_map[uid][1]})
+        with open(os.path.join(self.out_dir, "selected_utterances.json"), "w", encoding="utf-8") as stream:
+            json.dump(selected, stream, ensure_ascii=False, indent=2)
         return train_out, val_out
 
     def process_utterance(self, speaker, basename):
@@ -408,7 +419,9 @@ class Preprocessor:
         ), None
 
     def get_alignment(self, tier):
-        sil_phones = ["sil", "sp", "spn", ""]
+        if any(t.text.strip() == "spn" for t in tier._objects):
+            raise ValueError("unknown_speech_spn: repair OOV transcription/alignment before using this utterance")
+        sil_phones = ["sil", "sp", ""]
 
         phones = []
         durations = []
