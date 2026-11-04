@@ -359,6 +359,14 @@ if __name__ == "__main__":
     parser.add_argument("-p", "--preprocess_config", type=str, default=None)
     parser.add_argument("-m", "--model_config", type=str, default=None)
     parser.add_argument("-t", "--train_config", type=str, default=None)
+    parser.add_argument("--total_step", type=int, default=None)
+    parser.add_argument("--val_step", type=int, default=None)
+    parser.add_argument("--save_step", type=int, default=None)
+    parser.add_argument("--synth_step", type=int, default=None)
+    parser.add_argument("--preprocessed_path", type=str, default=None)
+    parser.add_argument("--ckpt_path", type=str, default=None)
+    parser.add_argument("--log_path", type=str, default=None)
+    parser.add_argument("--result_path", type=str, default=None)
     args = parser.parse_args()
 
     if args.preprocess_config and args.model_config and args.train_config:
@@ -376,6 +384,23 @@ if __name__ == "__main__":
             open(args.config, "r", encoding="utf-8"), Loader=yaml.FullLoader
         )
         preprocess_config = model_config = train_config = unified
+
+    if args.total_step is not None:
+        train_config["step"]["total_step"] = args.total_step
+    if args.val_step is not None:
+        train_config["step"]["val_step"] = args.val_step
+    if args.save_step is not None:
+        train_config["step"]["save_step"] = args.save_step
+    if args.synth_step is not None:
+        train_config["step"]["synth_step"] = args.synth_step
+    if args.preprocessed_path is not None:
+        preprocess_config["path"]["preprocessed_path"] = args.preprocessed_path
+    if args.ckpt_path is not None:
+        train_config["path"]["ckpt_path"] = args.ckpt_path
+    if args.log_path is not None:
+        train_config["path"]["log_path"] = args.log_path
+    if args.result_path is not None:
+        train_config["path"]["result_path"] = args.result_path
 
     configs = (preprocess_config, model_config, train_config)
     main(args, configs)

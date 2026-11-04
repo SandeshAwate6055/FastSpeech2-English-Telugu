@@ -152,7 +152,7 @@ def save_variance_plots(
 def run_inference(args, configs):
     preprocess_config, model_config, train_config = configs
 
-    if args.restore_step is None or args.restore_step == 0:
+    if not getattr(args, "ckpt_file", None) and (args.restore_step is None or args.restore_step == 0):
         args.restore_step = find_latest_step(train_config["path"]["ckpt_path"])
         print(f"Auto-selected checkpoint step: {args.restore_step}")
 
@@ -239,6 +239,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="FastSpeech 2 Telugu Inference & Variance Adaptor Analysis")
     parser.add_argument("-c", "--config", type=str, default="config.yaml")
     parser.add_argument("--restore_step", type=int, default=0)
+    parser.add_argument("--ckpt_file", type=str, default=None, help="Optional explicit checkpoint file path")
+    parser.add_argument("--ckpt_path", type=str, default=None)
+    parser.add_argument("--result_path", type=str, default=None)
+    parser.add_argument("--preprocessed_path", type=str, default=None)
     parser.add_argument("--speaker_id", type=int, default=0)
     parser.add_argument("--text", type=str, default=None, help="Optional single sentence override")
     parser.add_argument("--sample_id", type=str, default="custom")
@@ -249,5 +253,11 @@ if __name__ == "__main__":
 
     with open(args.config, "r", encoding="utf-8") as f:
         unified = yaml.load(f, Loader=yaml.FullLoader)
+    if args.ckpt_path is not None:
+        unified["path"]["ckpt_path"] = args.ckpt_path
+    if args.result_path is not None:
+        unified["path"]["result_path"] = args.result_path
+    if args.preprocessed_path is not None:
+        unified["path"]["preprocessed_path"] = args.preprocessed_path
     configs = (unified, unified, unified)
     run_inference(args, configs)

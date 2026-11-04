@@ -15,7 +15,14 @@ def get_model(args, configs, device, train=False):
     (preprocess_config, model_config, train_config) = configs
 
     model = FastSpeech2(preprocess_config, model_config).to(device)
-    if getattr(args, "restore_step", 0):
+    ckpt = None
+    ckpt_file = getattr(args, "ckpt_file", None)
+    if ckpt_file and os.path.exists(ckpt_file):
+        ckpt = torch.load(ckpt_file, map_location=device, weights_only=False)
+        model.load_state_dict(ckpt["model"])
+        if not getattr(args, "restore_step", 0) and "step" in ckpt:
+            args.restore_step = int(ckpt["step"])
+    elif getattr(args, "restore_step", 0):
         ckpt_path = os.path.join(
             train_config["path"]["ckpt_path"],
             "{}.pth.tar".format(args.restore_step),
@@ -27,7 +34,7 @@ def get_model(args, configs, device, train=False):
         scheduled_optim = ScheduledOptim(
             model, train_config, model_config, getattr(args, "restore_step", 0)
         )
-        if getattr(args, "restore_step", 0):
+        if ckpt is not None and "optimizer" in ckpt:
             scheduled_optim.load_state_dict(ckpt["optimizer"])
         model.train()
         return model, scheduled_optim

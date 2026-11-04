@@ -10,6 +10,7 @@ from sklearn.preprocessing import StandardScaler
 from tqdm import tqdm
 
 import audio as Audio
+from text import text_to_sequence
 
 
 class Preprocessor:
@@ -146,6 +147,8 @@ class Preprocessor:
         val_frames = 0
         train_speakers = set()
         val_speakers = set()
+        selected_train_files = set()
+        selected_val_files = set()
 
         for uid in train_ids + res_train_ids:
             if uid not in processed_map:
@@ -156,6 +159,7 @@ class Preprocessor:
             train_out.append(info)
             train_frames += nf
             train_speakers.add(spk)
+            selected_train_files.add((spk, uid))
             # Fit StandardScaler STRICTLY on training examples only (no validation leakage)
             if len(p_clean) > 0:
                 pitch_scaler.partial_fit(p_clean.reshape((-1, 1)))
@@ -171,6 +175,16 @@ class Preprocessor:
             val_out.append(info)
             val_frames += nf
             val_speakers.add(spk)
+            selected_val_files.add((spk, uid))
+
+        kept_files = selected_train_files | selected_val_files
+        # Remove any mel/duration files written for unselected reserve candidates
+        for uid, (_, _, spk, _, _) in processed_map.items():
+            if (spk, uid) not in kept_files:
+                for sub, tag in [("mel", "mel"), ("duration", "duration")]:
+                    stale_path = os.path.join(self.out_dir, sub, f"{spk}-{tag}-{uid}.npy")
+                    if os.path.exists(stale_path):
+                        os.remove(stale_path)
 
         untrained_val_speakers = val_speakers - train_speakers
         if untrained_val_speakers:
@@ -191,12 +205,27 @@ class Preprocessor:
         else:
             energy_mean, energy_std = 0.0, 1.0
 
-        # Idempotent normalization from raw cached values
+        train_pitch_keys = {f"{spk}-pitch-{uid}.npy" for spk, uid in selected_train_files}
+        kept_pitch_keys = {f"{spk}-pitch-{uid}.npy" for spk, uid in kept_files}
+        train_energy_keys = {f"{spk}-energy-{uid}.npy" for spk, uid in selected_train_files}
+        kept_energy_keys = {f"{spk}-energy-{uid}.npy" for spk, uid in kept_files}
+
+        # Idempotent normalization from raw cached values; quantization bounds strictly from training split
         pitch_min, pitch_max = self.normalize_from_cache(
-            os.path.join(self.out_dir, "pitch"), raw_pitch_cache, pitch_mean, pitch_std
+            os.path.join(self.out_dir, "pitch"),
+            raw_pitch_cache,
+            pitch_mean,
+            pitch_std,
+            train_keys=train_pitch_keys,
+            kept_keys=kept_pitch_keys,
         )
         energy_min, energy_max = self.normalize_from_cache(
-            os.path.join(self.out_dir, "energy"), raw_energy_cache, energy_mean, energy_std
+            os.path.join(self.out_dir, "energy"),
+            raw_energy_cache,
+            energy_mean,
+            energy_std,
+            train_keys=train_energy_keys,
+            kept_keys=kept_energy_keys,
         )
 
         with open(os.path.join(self.out_dir, "speakers.json"), "w", encoding="utf-8") as f:
@@ -266,7 +295,18 @@ class Preprocessor:
         if not phone or start >= end or any(d < 0 for d in duration) or sum(duration) <= 0:
             return None, "empty_or_invalid_durations"
 
+        expected_span_frames = int(
+            np.round(end * self.sampling_rate / self.hop_length)
+            - np.round(start * self.sampling_rate / self.hop_length)
+        )
+        total_dur_frames = int(sum(duration))
+        if abs(total_dur_frames - expected_span_frames) > 1:
+            return None, f"span_duration_mismatch:{total_dur_frames}!={expected_span_frames}"
+
         text = "{" + " ".join(phone) + "}"
+        seq_ids = text_to_sequence(text, self.config["preprocessing"]["text"]["text_cleaners"])
+        if len(seq_ids) != len(phone):
+            return None, f"unsupported_phone_token:{len(seq_ids)}!={len(phone)}"
 
         wav, _ = librosa.load(wav_path, sr=self.sampling_rate)
         wav = wav[
@@ -283,12 +323,16 @@ class Preprocessor:
         )
         pitch = pw.stonemask(wav.astype(np.float64), pitch, t, self.sampling_rate)
 
-        total_dur_frames = int(sum(duration))
+        if len(pitch) < total_dur_frames or (len(pitch) - total_dur_frames) > 3:
+            return None, f"pre_slice_f0_span_mismatch:{len(pitch)}_vs_{total_dur_frames}"
         pitch = pitch[:total_dur_frames]
         if np.sum(pitch != 0) <= 1:
             return None, "all_unvoiced_f0"
 
         mel_spectrogram, energy = Audio.tools.get_mel_from_wav(wav, self.STFT)
+        pre_slice_mel_frames = int(mel_spectrogram.shape[1])
+        if pre_slice_mel_frames < total_dur_frames or (pre_slice_mel_frames - total_dur_frames) > 3:
+            return None, f"pre_slice_mel_span_mismatch:{pre_slice_mel_frames}_vs_{total_dur_frames}"
         mel_spectrogram = mel_spectrogram[:, :total_dur_frames]
         energy = energy[:total_dur_frames]
 
@@ -359,10 +403,14 @@ class Preprocessor:
         end_time = 0
         end_idx = 0
 
-        # Ensure contiguous intervals by explicitly filling any gap with silence
+        # Ensure contiguous monotonic intervals by rejecting overlaps and filling any gap with silence
         intervals = []
         prev_end = None
         for t in tier._objects:
+            if t.end_time < t.start_time:
+                raise ValueError(f"Non-monotonic interval ({t.start_time} > {t.end_time})")
+            if prev_end is not None and t.start_time < prev_end - 1e-5:
+                raise ValueError(f"Overlapping interval ({t.start_time} < {prev_end})")
             if prev_end is not None and t.start_time - prev_end > 1e-6:
                 intervals.append((prev_end, t.start_time, ""))
             intervals.append((t.start_time, t.end_time, t.text.strip()))
@@ -407,15 +455,18 @@ class Preprocessor:
 
         return values[normal_indices]
 
-    def normalize_from_cache(self, out_subdir, raw_cache, mean, std):
+    def normalize_from_cache(self, out_subdir, raw_cache, mean, std, train_keys=None, kept_keys=None):
         max_value = np.finfo(np.float64).min
         min_value = np.finfo(np.float64).max
         if not raw_cache:
             return -1.0, 1.0
         for filename, raw_vals in raw_cache.items():
+            if kept_keys is not None and filename not in kept_keys:
+                continue
             filepath = os.path.join(out_subdir, filename)
             values = (raw_vals - mean) / std
             np.save(filepath, values.astype(np.float32))
-            max_value = max(max_value, float(np.max(values)))
-            min_value = min(min_value, float(np.min(values)))
+            if train_keys is None or filename in train_keys:
+                max_value = max(max_value, float(np.max(values)))
+                min_value = min(min_value, float(np.min(values)))
         return min_value, max_value
