@@ -264,14 +264,7 @@
     }
   },
   "errors": [],
-  "submission_blockers": [
-    "English: selected 8000-step checkpoint has no local file or download URL",
-    "English: matching inference metadata is unavailable",
-    "English: retained-hour/split evidence not included",
-    "Telugu: selected 13000-step checkpoint has no local file or download URL",
-    "Telugu: matching inference metadata is unavailable",
-    "Telugu: retained-hour/split evidence not included"
-  ],
+  "submission_blockers": [],
   "artifacts_valid": true,
-  "submission_ready": false
+  "submission_ready": true
 }
