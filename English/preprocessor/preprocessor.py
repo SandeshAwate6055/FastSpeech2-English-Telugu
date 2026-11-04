@@ -271,6 +271,14 @@ class Preprocessor:
             f"Retained hours -> Train: {train_hours:.2f}h ({len(train_out)} clips), "
             f"Val: {val_hours:.2f}h ({len(val_out)} clips), Rejected: {len(rejections)}"
         )
+        if len(train_out) == 0 or len(val_out) == 0 or train_hours < 4.0 or val_hours < 0.7:
+            import collections
+            reasons = collections.Counter(r["reason"].split(":")[0] for r in rejections)
+            raise RuntimeError(
+                f"Preprocessing failed minimum retained-hour gate "
+                f"(train={train_hours:.2f}h [{len(train_out)} clips], val={val_hours:.2f}h [{len(val_out)} clips]). "
+                f"Top rejection reasons: {dict(reasons.most_common(10))}"
+            )
 
         with open(os.path.join(self.out_dir, "train.txt"), "w", encoding="utf-8") as f:
             for m in train_out:
