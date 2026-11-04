@@ -17,6 +17,7 @@ import io
 import json
 import os
 import random
+import re
 
 import librosa
 import numpy as np
