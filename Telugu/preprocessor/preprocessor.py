@@ -65,8 +65,13 @@ class Preprocessor:
         def _read_ids(p):
             if not os.path.exists(p):
                 return []
+            ids = []
             with open(p, "r", encoding="utf-8") as f:
-                return [line.strip().split("|")[0] for line in f if line.strip()]
+                for line in f:
+                    parts = line.rstrip("\r\n").split("|", 4)
+                    if len(parts) == 5 and parts[0].strip():
+                        ids.append(parts[0].strip())
+            return ids
 
         train_ids = _read_ids(train_list_path)
         val_ids = _read_ids(val_list_path)

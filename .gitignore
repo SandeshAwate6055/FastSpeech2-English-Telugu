@@ -8,6 +8,7 @@
 *.pyc
 .DS_Store
 
-# Ignore local uncompressed vocoder weights (auto-extracted from reference or downloaded)
+# Ignore local uncompressed vocoder weights and generated MFA dictionary
 **/hifigan/*.pth.tar
 **/hifigan/*.zip
+**/lexicon/english_svarah_mfa.dict

@@ -252,7 +252,8 @@ def main():
     def _write_manifest(filename, records):
         with open(os.path.join(args.raw_dir, filename), "w", encoding="utf-8") as f:
             for utt_id, spk_id, dur, sha1, txt in records:
-                f.write(f"{utt_id}|{spk_id}|{dur:.3f}|{sha1}|{txt}\n")
+                clean_txt = re.sub(r"[\r\n]+", " ", str(txt)).strip()
+                f.write(f"{utt_id}|{spk_id}|{dur:.3f}|{sha1}|{clean_txt}\n")
 
     _write_manifest("train_filelist.txt", train_recs)
     _write_manifest("val_filelist.txt", val_recs)
