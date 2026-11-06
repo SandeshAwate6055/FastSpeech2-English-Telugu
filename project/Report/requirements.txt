@@ -1,0 +1,7 @@
+# Report generation only; acoustic training dependencies remain unchanged.
+reportlab>=4.0
+Pillow>=10.0
+numpy>=1.23
+# Rendering and independent PDF/link verification.
+pypdf>=5.0
+pypdfium2>=4.0
