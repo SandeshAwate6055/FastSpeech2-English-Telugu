@@ -51,10 +51,31 @@ Two independent **FastSpeech 2** acoustic models generate English and Telugu mel
 
 Validation improves early, then plateaus while training loss falls, consistent with overfitting. Lower loss across different corpora does not establish better speech quality. Detailed convergence analysis is in [report pages 5–8](project/Report/Technical_Report.pdf#page=5).
 
+### Reading the losses
+
+| Loss term | What it measures |
+|---|---|
+| Mel / PostNet | L1 error before and after residual mel refinement |
+| Duration | MSE against `log(1 + reference frames)` for each phone |
+| Pitch / energy | MSE against the normalized phone-level targets |
+| Total | Sum of both mel losses and the three variance-prediction losses |
+
+Training CSV rows are sampled minibatches; validation values are aggregates. The histories contain **600 training records and 60 validation records per language**. Checkpoint selection follows the validation total, rather than the lowest training loss or the latest saved step. Listening to held-out free-running speech remains necessary to assess the selected weights.
+
 <a id="architecture"></a>
 ## 2. System architecture
 
 English and Telugu use the same topology with **separate weights, phone inventories, speaker maps and statistics**. English uses lexicon/G2P phones; Telugu uses Unicode-based phone decomposition.
+
+### Architecture overview
+
+![FastSpeech 2 architecture overview](assets/fastspeech2-architecture.png)
+
+[Open the full-resolution architecture image](assets/fastspeech2-architecture.png).
+
+The supplied image illustrates the main components. In this repository, **multi-speaker conditioning is enabled for both languages** and **pitch/energy operate at phone level**. The code-specific diagram below makes the dependencies explicit: energy consumes pitch-conditioned hidden states, and PostNet refinement is added to the original mel projection as a residual.
+
+### Implementation data flow
 
 ```mermaid
 flowchart TD
@@ -77,8 +98,55 @@ flowchart TD
 
 **Training** conditions the model on reference duration, pitch and energy; **inference** uses their predictions. Energy receives pitch-conditioned states, and both embeddings are added before duration expansion. [Model](project/English/model/fastspeech2.py) · [Variance adaptor](project/English/model/modules.py) · [Loss function](project/English/model/loss.py).
 
+### Components and behavior
+
+| Component | Role in this implementation |
+|---|---|
+| FFT encoder | Converts language-specific phone IDs into contextual hidden states |
+| Speaker embedding | Adds the selected speaker/profile representation to encoder states |
+| Duration predictor | Predicts log-duration; integer frame counts control length expansion |
+| Pitch predictor and embedding | Add phone-level F0 information to the hidden states |
+| Energy predictor and embedding | Add energy information after pitch conditioning |
+| Length regulator | Repeats each phone state according to its duration |
+| FFT decoder and PostNet | Produce and refine the 80-channel mel spectrogram |
+| Universal HiFi-GAN | Converts refined mel features into the final PCM waveform |
+
+At default controls, the predicted duration and output length are:
+
+```text
+duration_i = max(round(exp(log_duration_i) - 1), 0)
+mel_frames = sum(duration_i)
+audio_seconds = mel_frames * 256 / 22050
+refined_mel = projected_mel + PostNet(projected_mel)
+```
+
+A zero-duration phone contributes no repeated frames. Training uses reference durations and reference pitch/energy while still learning all three prediction heads; inference supplies their predictions without reference audio.
+
+### Training objective
+
+```text
+total = L1(mel, target)
+      + L1(postnet_mel, target)
+      + MSE(log_duration, log(1 + reference_duration))
+      + MSE(normalized_pitch, target_pitch)
+      + MSE(normalized_energy, target_energy)
+```
+
+Padding masks exclude padded phones and frames. The two language models optimize this objective independently; a low reference-conditioned reconstruction loss does not guarantee intelligible free-running speech.
+
 <a id="implementation"></a>
 **Main adaptations:** separate corpus loaders/configurations, English lexicon plus `g2p_en` fallback, Telugu vowel/virama-aware phones and numeric expansion, speaker conditioning, alignment checks, training-only feature statistics, explicit checkpoint loading and prediction exports. This implementation uses phone-level F0/energy, a six-block decoder and HiFi-GAN; [report pages 2–3](project/Report/Technical_Report.pdf#page=2) explain the differences from the paper.
+
+### Language-specific changes
+
+| Area | English | Telugu |
+|---|---|---|
+| Dataset preparation | Svarah clips with demographic profile grouping | IndicTTS clips using female/male source labels |
+| Pronunciation frontend | ARPAbet lexicon with `g2p_en` fallback for unseen words | Unicode decomposition with inherent vowels, vowel signs and virama |
+| Text normalization | Abbreviations, dates, times and numbers | Telugu digits, numbers, ordinal dates and times |
+| Shared source changes | Independent configurations/weights, alignment checks, feature statistics and prediction exports | Same mechanisms with separate Telugu metadata and symbols |
+
+The Telugu frontend is a deterministic phonemic approximation; assimilation, allophones and loanwords remain limitations. English first-pronunciation lexicon lookup can miss context-sensitive stress, as illustrated by the two **conduct** sentences below.
 
 <a id="audio"></a>
 <a id="variance-gallery"></a>
@@ -108,6 +176,23 @@ All WAVs are **22,050 Hz mono, 16-bit PCM**. Each row links to the audio and its
 
 Per-sentence observations and measurements are in [report pages 9–18](project/Report/Technical_Report.pdf#page=9). Duration is measured in mel frames; F0 is an inverse-normalized phone prediction, not a generated-waveform F0 measurement; energy uses STFT-magnitude units. Human pronunciation/naturalness review remains pending.
 
+### What to inspect in each sample
+
+| Sample | Evaluation focus / saved evidence |
+|---|---|
+| E1 | Rare long word; one saved `AH0` token has zero predicted duration |
+| E2a / E2b | Noun versus verb **conduct**; both saved sequences use the same noun-stressed pronunciation |
+| E3 | Broken input `rhyth  m`; normalization collapses spaces without repairing the word |
+| E4 | Time/date expansion and **andaroo**; two `sp` tokens include a pause introduced at the hyphen in the expanded year |
+| T1 | Long technical word, consonant clusters and vowel length |
+| T2a / T2b | Different contexts of **పట్టు**, including geminate handling and phrase timing |
+| T3 | Broken input `అడ  విలో`; source spacing does not establish a predicted silence token |
+| T4 | Year/ordinal/time expansion; one comma pause expands to 52 frames, approximately 0.604 s |
+
+**Plot interpretation:** duration bars show phone expansion; F0 and energy curves show predictor outputs after reversing normalization. Peaks identify positions to inspect for emphasis, while low values may occur around weak phones or pauses. Token identity, interpolation and the speaker also affect these patterns; the plots alone do not prove correct pronunciation.
+
+For listening review, check intelligibility, target-word pronunciation, omissions/repetitions, stress, pauses and artifacts. The report separates these pending judgments from measured waveform and predictor properties.
+
 <a id="datasets"></a>
 ## 4. Datasets and training setup
 
@@ -121,6 +206,16 @@ Per-sentence observations and measurements are in [report pages 9–18](project/
 Counts/hours are from recovered evidence summarized in [report page 4](project/Report/Technical_Report.pdf#page=4). Selection uses seed 42, 1–20 s clips, waveform deduplication and voice/profile-aware partitions with split-specific reserves. English profiles are not verified unique speaker identities.
 
 **Preprocessing:** resample to 22,050 Hz, normalize transcripts, obtain compatible MFA phone alignments, then extract mel, duration, PyWorld F0 and energy features. Preserve interior pauses and fit normalization/bounds on selected training data only. Alignment is required before `preprocess.py`; its full process is documented in the report.
+
+### Selection and preprocessing summary
+
+1. Resolve the dataset revision and create deterministic candidate pools with seed 42.
+2. Partition within voice/profile groups, then filter clips and deduplicate waveforms.
+3. Target about 5h training and 1h validation, with separate 0.75h/0.20h reserve pools.
+4. Write normalized transcripts and mono audio; obtain compatible MFA phone alignments.
+5. Reject invalid timelines/features, replenish each split from its own reserves, and fit statistics on retained training clips only.
+
+The Svarah source pool is its dataset `test` split; the assignment's train/validation sets are created from that pool. Validation groups are represented in training. These are utterance-disjoint splits, rather than a claim of evaluation on entirely unseen speakers.
 
 <a id="training-configuration"></a>
 | Shared configuration | Value |
@@ -147,6 +242,25 @@ Counts/hours are from recovered evidence summarized in [report page 4](project/R
 | Telugu | 13,000 / 0 | [13000.pth.tar](https://drive.google.com/uc?export=download&id=1loNuZ9gRVLTobXHzzwZGsDe8KkB_FB-p) | `project/Telugu/checkpoints/13000.pth.tar` |
 
 SHA-256 checksums and sizes: [English checkpoint metadata](project/English/checkpoints/README.md) · [Telugu checkpoint metadata](project/Telugu/checkpoints/README.md). Restore each model's original `stats.json`, `speakers.json`, symbol/lexicon setup and `hifigan/generator_universal.pth.tar` together with its acoustic weights.
+
+### Integrity and restoration
+
+```text
+English 8000.pth.tar: 420,505,334 bytes
+SHA-256: b50f0558474eab89e95e8079df23cb3c364e339ce00fe6d88316beb4b86ff49a
+Telugu 13000.pth.tar: 420,944,630 bytes
+SHA-256: 49902507629887721818ec180dac2b419609f6c7a9e601c6d767a11233d1baa1
+```
+
+From the repository root, download with `gdown` or use the browser links above:
+
+```bash
+python -m pip install gdown
+gdown 1asQbbLU4y9qPAHd8Jvu2T1G-5VES6X7P -O project/English/checkpoints/8000.pth.tar
+gdown 1loNuZ9gRVLTobXHzzwZGsDe8KkB_FB-p -O project/Telugu/checkpoints/13000.pth.tar
+```
+
+Verify the downloaded bytes with `sha256sum` or PowerShell `Get-FileHash -Algorithm SHA256`. Keep the original speaker-ID mapping and normalization statistics coupled to the selected checkpoint; generating new metadata can change the meaning of the saved weights.
 
 <a id="reproducibility"></a>
 ## 6. Reproducibility and commands
@@ -186,6 +300,32 @@ python train.py --config config.yaml --total_step 60000
 
 MFA is a separate training dependency. Svarah may require Hugging Face approval and `HF_TOKEN`. The requirements use lower version bounds rather than a complete historical environment lock.
 
+### Custom inference and controls
+
+From `project/English`, after restoring the required bundles:
+
+```bash
+python inference.py --config config.yaml \
+  --ckpt_file checkpoints/8000.pth.tar --speaker_id 14 \
+  --text "This is a custom synthesis example." --sample_id custom \
+  --pitch_control 1.0 --energy_control 1.0 --duration_control 1.0 \
+  --result_path ../Results/custom/English
+```
+
+All controls default to 1.0. Pitch/energy multipliers act in normalized feature space, so they do not guarantee the same percentage change in physical F0 or loudness. Custom sentences supplement the mandatory test set.
+
+### Colab workflow
+
+The notebook defaults to `MODE = "evaluate"`; `MODE = "train"` describes a fresh experiment. Once its missing support files and paths are restored, its stages cover:
+
+1. Environment/Drive setup and model-bundle restoration.
+2. Independent English and Telugu data preparation and alignment.
+3. Vocoder reconstruction and a small overfit diagnostic.
+4. Held-out pilots, checkpoint comparison and optional full training.
+5. Exact test synthesis, audio playback, variance plots and packaging.
+
+Expected output per language: **5 WAVs + 15 variance PNGs + prediction JSON**. Duration sums should match mel frames, token/predictor arrays should have equal lengths, and checkpoint/speaker IDs should match the selected bundle. Existing result summaries cause the scripts to stop unless overwriting is explicitly enabled.
+
 <a id="report"></a>
 ## 7. Technical report guide
 
@@ -200,11 +340,16 @@ MFA is a separate training dependency. Svarah may require Hugging Face approval 
 | Comparison, failures and improvements | [19](project/Report/Technical_Report.pdf#page=19) |
 | Dependencies, commands and model links | [20](project/Report/Technical_Report.pdf#page=20) |
 
+The PDF includes internal bookmarks, clickable source/audio links, corrected vector diagrams, all ten per-sentence analyses and checkpoint checksums. The report directory contains **only `Technical_Report.pdf`**, following the assignment structure.
+
+For a full demonstration, read the architecture and data protocol first, compare the loss curves, then open each sample's WAV alongside its duration/F0/energy plots. Finish with the cross-language limitations and reproduction prerequisites. PDF page-fragment links depend on the viewer; use the printed page numbers if a browser does not jump to the selected page.
+
 <a id="files"></a>
 <a id="source-index"></a>
 ## 8. Code and references
 
 ```text
+assets/fastspeech2-architecture.png  # README overview image
 project/
 ├── English/    # prepare_data.py, preprocess.py, train.py, inference.py,
 │               # config.yaml, checkpoints/, model/, text/, preprocessor/, ...
