@@ -1,4 +1,4 @@
-# Ignore raw datasets, preprocessed features, and intermediate logs
+# Raw data, intermediate features, and training artifacts
 **/raw_data/
 **/preprocessed_data/
 **/data/
@@ -7,15 +7,16 @@
 **/__pycache__/
 *.pyc
 .DS_Store
-Report/preview/
-Report/Technical_Report.build.pdf
 experiments/
 **/*.part
+preview/
+**/preview/
+*.build.pdf
 
-# Ignore local uncompressed vocoder weights, checkpoints, and generated MFA dictionary
+# Checkpoints and large vocoder weights (hosted externally on Google Drive)
 **/hifigan/*.pth.tar
 **/hifigan/*.zip
 **/checkpoints/*.pth.tar
 !**/checkpoints/.gitkeep
+!**/checkpoints/README.md
 **/lexicon/english_svarah_mfa.dict
-!Results/English/metadata/source_snapshot/lexicon/english_svarah_mfa.dict
