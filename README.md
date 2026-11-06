@@ -357,193 +357,45 @@ For a full demonstration, read the architecture and data protocol first, compare
 <a id="source-index"></a>
 ## 8. Code and references
 
-The complete tracked repository structure is shown below. Large checkpoint/vocoder weights, raw datasets and intermediate features are stored externally or excluded from Git.
+### Project structure
+
+Important directories and entry points are shown below; `...` groups repetitive internal modules and support files.
 
 ```text
 FastSpeech2-English-Telugu/
-├── assets/
-│   ├── fastspeech2-architecture.png
-│   └── fastspeech2-english-telugu-architecture.png
-├── project/
-│   ├── English/
-│   │   ├── audio/
-│   │   │   ├── __init__.py
-│   │   │   ├── audio_processing.py
-│   │   │   ├── stft.py
-│   │   │   └── tools.py
-│   │   ├── checkpoints/
-│   │   │   ├── .gitkeep
-│   │   │   └── README.md
-│   │   ├── hifigan/
-│   │   │   ├── __init__.py
-│   │   │   ├── config.json
-│   │   │   ├── LICENSE
-│   │   │   └── models.py
-│   │   ├── lexicon/
-│   │   │   └── librispeech-lexicon.txt
-│   │   ├── model/
-│   │   │   ├── __init__.py
-│   │   │   ├── fastspeech2.py
-│   │   │   ├── loss.py
-│   │   │   ├── modules.py
-│   │   │   └── optimizer.py
-│   │   ├── preprocessor/
-│   │   │   ├── aishell3.py
-│   │   │   ├── libritts.py
-│   │   │   ├── ljspeech.py
-│   │   │   └── preprocessor.py
-│   │   ├── text/
-│   │   │   ├── __init__.py
-│   │   │   ├── cleaners.py
-│   │   │   ├── cmudict.py
-│   │   │   ├── numbers.py
-│   │   │   ├── pinyin.py
-│   │   │   └── symbols.py
-│   │   ├── transformer/
-│   │   │   ├── __init__.py
-│   │   │   ├── Constants.py
-│   │   │   ├── Layers.py
-│   │   │   ├── Models.py
-│   │   │   ├── Modules.py
-│   │   │   └── SubLayers.py
-│   │   ├── utils/
-│   │   │   ├── model.py
-│   │   │   └── tools.py
-│   │   ├── config.yaml
-│   │   ├── dataset.py
-│   │   ├── evaluate.py
-│   │   ├── inference.py
-│   │   ├── prepare_data.py
-│   │   ├── preprocess.py
-│   │   └── train.py
-│   ├── Report/
-│   │   └── Technical_Report.pdf
-│   ├── Results/
-│   │   ├── English/
-│   │   │   ├── metrics/
-│   │   │   │   ├── train_losses.csv
-│   │   │   │   └── val_losses.csv
-│   │   │   ├── test_generated_audios/
-│   │   │   │   ├── E1.wav
-│   │   │   │   ├── E2a.wav
-│   │   │   │   ├── E2b.wav
-│   │   │   │   ├── E3.wav
-│   │   │   │   └── E4.wav
-│   │   │   ├── variance_adaptor_plots/
-│   │   │   │   ├── duration/
-│   │   │   │   │   ├── E1_duration.png
-│   │   │   │   │   ├── E2a_duration.png
-│   │   │   │   │   ├── E2b_duration.png
-│   │   │   │   │   ├── E3_duration.png
-│   │   │   │   │   └── E4_duration.png
-│   │   │   │   ├── energy/
-│   │   │   │   │   ├── E1_energy.png
-│   │   │   │   │   ├── E2a_energy.png
-│   │   │   │   │   ├── E2b_energy.png
-│   │   │   │   │   ├── E3_energy.png
-│   │   │   │   │   └── E4_energy.png
-│   │   │   │   └── pitch/
-│   │   │   │       ├── E1_pitch.png
-│   │   │   │       ├── E2a_pitch.png
-│   │   │   │       ├── E2b_pitch.png
-│   │   │   │       ├── E3_pitch.png
-│   │   │   │       └── E4_pitch.png
-│   │   │   ├── training_loss.png
-│   │   │   ├── validation_loss.png
-│   │   │   └── variance_predictions_summary.json
-│   │   └── Telugu/
-│   │       ├── metrics/
-│   │       │   ├── train_losses.csv
-│   │       │   └── val_losses.csv
-│   │       ├── test_generated_audios/
-│   │       │   ├── T1.wav
-│   │       │   ├── T2a.wav
-│   │       │   ├── T2b.wav
-│   │       │   ├── T3.wav
-│   │       │   └── T4.wav
-│   │       ├── variance_adaptor_plots/
-│   │       │   ├── duration/
-│   │       │   │   ├── T1_duration.png
-│   │       │   │   ├── T2a_duration.png
-│   │       │   │   ├── T2b_duration.png
-│   │       │   │   ├── T3_duration.png
-│   │       │   │   └── T4_duration.png
-│   │       │   ├── energy/
-│   │       │   │   ├── T1_energy.png
-│   │       │   │   ├── T2a_energy.png
-│   │       │   │   ├── T2b_energy.png
-│   │       │   │   ├── T3_energy.png
-│   │       │   │   └── T4_energy.png
-│   │       │   └── pitch/
-│   │       │       ├── T1_pitch.png
-│   │       │       ├── T2a_pitch.png
-│   │       │       ├── T2b_pitch.png
-│   │       │       ├── T3_pitch.png
-│   │       │       └── T4_pitch.png
-│   │       ├── training_loss.png
-│   │       ├── validation_loss.png
-│   │       └── variance_predictions_summary.json
-│   ├── Telugu/
-│   │   ├── audio/
-│   │   │   ├── __init__.py
-│   │   │   ├── audio_processing.py
-│   │   │   ├── stft.py
-│   │   │   └── tools.py
-│   │   ├── checkpoints/
-│   │   │   ├── .gitkeep
-│   │   │   └── README.md
-│   │   ├── hifigan/
-│   │   │   ├── __init__.py
-│   │   │   ├── config.json
-│   │   │   ├── LICENSE
-│   │   │   └── models.py
-│   │   ├── lexicon/
-│   │   │   └── telugu-lexicon.txt
-│   │   ├── model/
-│   │   │   ├── __init__.py
-│   │   │   ├── fastspeech2.py
-│   │   │   ├── loss.py
-│   │   │   ├── modules.py
-│   │   │   └── optimizer.py
-│   │   ├── preprocessor/
-│   │   │   ├── aishell3.py
-│   │   │   ├── libritts.py
-│   │   │   ├── ljspeech.py
-│   │   │   └── preprocessor.py
-│   │   ├── text/
-│   │   │   ├── __init__.py
-│   │   │   ├── cleaners.py
-│   │   │   ├── cmudict.py
-│   │   │   ├── numbers.py
-│   │   │   ├── pinyin.py
-│   │   │   └── symbols.py
-│   │   ├── transformer/
-│   │   │   ├── __init__.py
-│   │   │   ├── Constants.py
-│   │   │   ├── Layers.py
-│   │   │   ├── Models.py
-│   │   │   ├── Modules.py
-│   │   │   └── SubLayers.py
-│   │   ├── utils/
-│   │   │   ├── model.py
-│   │   │   └── tools.py
-│   │   ├── config.yaml
-│   │   ├── dataset.py
-│   │   ├── evaluate.py
-│   │   ├── inference.py
-│   │   ├── prepare_data.py
-│   │   ├── preprocess.py
-│   │   └── train.py
-│   ├── FastSpeech2_Colab.ipynb
-│   ├── README.md
-│   └── requirements.txt
-├── .gitattributes
-├── .gitignore
+├── README.md
 ├── FastSpeech2_Assignment.pdf
 ├── FastSpeech2_Colab.ipynb
-├── README.md
-└── requirements.txt
+├── requirements.txt
+├── assets/                         # Architecture and structure images
+└── project/
+    ├── English/
+    │   ├── prepare_data.py
+    │   ├── preprocess.py
+    │   ├── train.py
+    │   ├── inference.py
+    │   ├── config.yaml
+    │   ├── checkpoints/
+    │   └── ...                     # audio/, model/, transformer/, text/, ...
+    ├── Telugu/
+    │   ├── prepare_data.py
+    │   ├── preprocess.py
+    │   ├── train.py
+    │   ├── inference.py
+    │   ├── config.yaml
+    │   ├── checkpoints/
+    │   └── ...                     # audio/, model/, transformer/, text/, ...
+    ├── Results/
+    │   ├── English/                # Loss plots, WAVs, variance plots, metrics
+    │   └── Telugu/                 # Same evaluation structure
+    ├── Report/
+    │   └── Technical_Report.pdf
+    └── ...                         # Notebook, README and requirements
 ```
+
+![Simplified FastSpeech 2 repository structure](assets/project-structure.svg)
+
+The diagram shows directory containment. Large checkpoint/vocoder weights, raw datasets and intermediate features are external or excluded from Git.
 
 | Source | English | Telugu |
 |---|---|---|
@@ -573,4 +425,3 @@ References: [assignment specification](FastSpeech2_Assignment.pdf), [FastSpeech 
 | 9 | Preprocessing, training and inference instructions | [Commands and prerequisites](#reproducibility) | Documented; runtime restoration required |
 
 [Back to top](#top) · [Main Drive](https://drive.google.com/drive/folders/1WsR1NHhzpkLvk3V0g8X3Jy-xsXNlsYHf?usp=sharing) · [Technical report](project/Report/Technical_Report.pdf)
-

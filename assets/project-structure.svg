@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="800" viewBox="0 0 1600 800" role="img" aria-labelledby="title desc">
+<title id="title">FastSpeech 2 English-Telugu repository structure</title>
+<desc id="desc">Directory hierarchy: the repository contains assets, project and root entry points. Project contains separate English and Telugu implementations, Results, and a Report directory with Technical_Report.pdf. Repeated internal modules are omitted.</desc>
+<rect width="1600" height="800" rx="20" fill="#f8fafc"/>
+<path d="M800 127 V164 M235 164 H1345 M235 164 V200 M800 164 V200 M1345 164 V200" fill="none" stroke="#bdcbd9" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M800 270 V360 M235 360 H1345 M235 360 V400 M605 360 V400 M975 360 V400 M1345 360 V400" fill="none" stroke="#bdcbd9" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="520" y="55" width="560" height="72" rx="14" fill="#172b4d"/>
+<text x="800" y="99" font-family="Arial, Helvetica, sans-serif" font-size="29" font-weight="700" fill="white" text-anchor="middle">FastSpeech2-English-Telugu/</text>
+<rect x="65" y="200" width="340" height="130" rx="14" fill="white" stroke="#dbe4ed" stroke-width="1.5"/>
+<rect x="85" y="224" width="5" height="22" rx="2.5" fill="#7a62ad"/>
+<text x="104" y="243" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="700" fill="#7a62ad" text-anchor="start">assets/</text>
+<path d="M85,261 H385" stroke="#edf1f5"/>
+<text x="89" y="289" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#607086" text-anchor="start">Architecture + structure images</text>
+<rect x="575" y="200" width="450" height="70" rx="14" fill="#eaf5f3" stroke="#bcded8" stroke-width="1.5"/>
+<text x="800" y="243" font-family="Arial, Helvetica, sans-serif" font-size="27" font-weight="700" fill="#11877c" text-anchor="middle">project/</text>
+<rect x="1175" y="200" width="340" height="130" rx="14" fill="white" stroke="#dbe4ed" stroke-width="1.5"/>
+<rect x="1195" y="224" width="5" height="22" rx="2.5" fill="#172b4d"/>
+<text x="1214" y="243" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="700" fill="#172b4d" text-anchor="start">Root entry points</text>
+<path d="M1195,261 H1495" stroke="#edf1f5"/>
+<text x="1197" y="281" font-family="Consolas, ui-monospace, monospace" font-size="16" font-weight="400" fill="#172b4d" text-anchor="start">FastSpeech2_Colab.ipynb</text>
+<text x="1197" y="306" font-family="Consolas, ui-monospace, monospace" font-size="16" font-weight="400" fill="#172b4d" text-anchor="start">README.md  |  requirements.txt</text>
+<rect x="65" y="400" width="340" height="320" rx="14" fill="white" stroke="#dbe4ed" stroke-width="1.5"/>
+<rect x="85" y="424" width="5" height="22" rx="2.5" fill="#3478cf"/>
+<text x="104" y="443" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="700" fill="#3478cf" text-anchor="start">English/</text>
+<path d="M85,461 H385" stroke="#edf1f5"/>
+<rect x="435" y="400" width="340" height="320" rx="14" fill="white" stroke="#dbe4ed" stroke-width="1.5"/>
+<rect x="455" y="424" width="5" height="22" rx="2.5" fill="#11877c"/>
+<text x="474" y="443" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="700" fill="#11877c" text-anchor="start">Telugu/</text>
+<path d="M455,461 H755" stroke="#edf1f5"/>
+<rect x="805" y="400" width="340" height="320" rx="14" fill="white" stroke="#dbe4ed" stroke-width="1.5"/>
+<rect x="825" y="424" width="5" height="22" rx="2.5" fill="#b87716"/>
+<text x="844" y="443" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="700" fill="#b87716" text-anchor="start">Results/</text>
+<path d="M825,461 H1125" stroke="#edf1f5"/>
+<rect x="1175" y="400" width="340" height="320" rx="14" fill="white" stroke="#dbe4ed" stroke-width="1.5"/>
+<rect x="1195" y="424" width="5" height="22" rx="2.5" fill="#7a62ad"/>
+<text x="1214" y="443" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="700" fill="#7a62ad" text-anchor="start">Report/</text>
+<path d="M1195,461 H1495" stroke="#edf1f5"/>
+<text x="89" y="489" font-family="Consolas, ui-monospace, monospace" font-size="19" font-weight="400" fill="#172b4d" text-anchor="start">prepare_data.py</text>
+<text x="89" y="518" font-family="Consolas, ui-monospace, monospace" font-size="19" font-weight="400" fill="#172b4d" text-anchor="start">preprocess.py</text>
+<text x="89" y="547" font-family="Consolas, ui-monospace, monospace" font-size="19" font-weight="400" fill="#172b4d" text-anchor="start">train.py</text>
+<text x="89" y="576" font-family="Consolas, ui-monospace, monospace" font-size="19" font-weight="400" fill="#172b4d" text-anchor="start">inference.py</text>
+<text x="89" y="605" font-family="Consolas, ui-monospace, monospace" font-size="19" font-weight="400" fill="#172b4d" text-anchor="start">config.yaml</text>
+<text x="89" y="634" font-family="Consolas, ui-monospace, monospace" font-size="19" font-weight="400" fill="#172b4d" text-anchor="start">checkpoints/</text>
+<text x="89" y="674" font-family="Consolas, ui-monospace, monospace" font-size="17" font-weight="400" fill="#607086" text-anchor="start">audio/ · model/ · ...</text>
+<text x="89" y="697" font-family="Consolas, ui-monospace, monospace" font-size="17" font-weight="400" fill="#607086" text-anchor="start">transformer/ · text/ · ...</text>
+<text x="459" y="489" font-family="Consolas, ui-monospace, monospace" font-size="19" font-weight="400" fill="#172b4d" text-anchor="start">prepare_data.py</text>
+<text x="459" y="518" font-family="Consolas, ui-monospace, monospace" font-size="19" font-weight="400" fill="#172b4d" text-anchor="start">preprocess.py</text>
+<text x="459" y="547" font-family="Consolas, ui-monospace, monospace" font-size="19" font-weight="400" fill="#172b4d" text-anchor="start">train.py</text>
+<text x="459" y="576" font-family="Consolas, ui-monospace, monospace" font-size="19" font-weight="400" fill="#172b4d" text-anchor="start">inference.py</text>
+<text x="459" y="605" font-family="Consolas, ui-monospace, monospace" font-size="19" font-weight="400" fill="#172b4d" text-anchor="start">config.yaml</text>
+<text x="459" y="634" font-family="Consolas, ui-monospace, monospace" font-size="19" font-weight="400" fill="#172b4d" text-anchor="start">checkpoints/</text>
+<text x="459" y="674" font-family="Consolas, ui-monospace, monospace" font-size="17" font-weight="400" fill="#607086" text-anchor="start">audio/ · model/ · ...</text>
+<text x="459" y="697" font-family="Consolas, ui-monospace, monospace" font-size="17" font-weight="400" fill="#607086" text-anchor="start">transformer/ · text/ · ...</text>
+<text x="829" y="489" font-family="Consolas, ui-monospace, monospace" font-size="18" font-weight="400" fill="#172b4d" text-anchor="start">English/  ·  Telugu/</text>
+<text x="829" y="519" font-family="Arial, Helvetica, sans-serif" font-size="16" fill="#607086">Per-language outputs:</text>
+<text x="849" y="549" font-family="Consolas, ui-monospace, monospace" font-size="18" font-weight="400" fill="#607086" text-anchor="start">training_loss.png</text>
+<text x="849" y="579" font-family="Consolas, ui-monospace, monospace" font-size="18" font-weight="400" fill="#607086" text-anchor="start">validation_loss.png</text>
+<text x="849" y="609" font-family="Consolas, ui-monospace, monospace" font-size="18" font-weight="400" fill="#607086" text-anchor="start">test_generated_audios/</text>
+<text x="849" y="639" font-family="Consolas, ui-monospace, monospace" font-size="18" font-weight="400" fill="#607086" text-anchor="start">variance_adaptor_plots/</text>
+<text x="849" y="669" font-family="Consolas, ui-monospace, monospace" font-size="17" font-weight="400" fill="#607086" text-anchor="start">metrics/ · prediction JSON</text>
+<text x="1199" y="490" font-family="Consolas, ui-monospace, monospace" font-size="20" font-weight="400" fill="#172b4d" text-anchor="start">Technical_Report.pdf</text>
+<text x="1199" y="538" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700" fill="#7a62ad" text-anchor="start">Single PDF deliverable</text>
+<text x="1199" y="575" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" fill="#607086" text-anchor="start">Implementation, evaluation</text>
+<text x="1199" y="602" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="400" fill="#607086" text-anchor="start">and reproduction details</text>
+<text x="800" y="766" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="400" fill="#607086" text-anchor="middle">Directory hierarchy · internal modules grouped · model weights hosted externally</text>
+</svg>
