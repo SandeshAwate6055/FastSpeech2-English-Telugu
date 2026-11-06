@@ -77,7 +77,7 @@ The paper reference is **FastSpeech 2**, the mel-spectrogram model, rather than 
 
 [Open the full-resolution architecture image](assets/fastspeech2-architecture.png).
 
-The supplied image illustrates the main components. In this repository, **multi-speaker conditioning is enabled for both languages** and **pitch/energy operate at phone level**. The code-specific diagram below makes the dependencies explicit: energy consumes pitch-conditioned hidden states, and PostNet refinement is added to the original mel projection as a residual.
+The supplied image illustrates the main components. In this repository, **multi-speaker conditioning is enabled for both languages** and **pitch/energy operate at phone level**. In the code, energy consumes pitch-conditioned hidden states, and PostNet refinement is added to the original mel projection as a residual.
 
 ### Verification of the supplied diagrams
 
@@ -89,46 +89,21 @@ The supplied image illustrates the main components. In this repository, **multi-
 
 [Open Image 2 at full resolution](assets/fastspeech2-english-telugu-architecture.png).
 
-**Image 2 verification:** the encoder/decoder dimensions, enabled speaker conditioning, conditioning order, residual PostNet and universal HiFi-GAN match the checked-in configurations and forward pass. It remains a simplified schematic: the hidden-state bypasses into the two embedding additions are not drawn explicitly. Energy receives `encoder_states + speaker_embedding + pitch_embedding`, not the pitch predictor's scalar output. The Mermaid diagram below preserves these state paths.
+**Image 2 verification:** the encoder/decoder dimensions, enabled speaker conditioning, conditioning order, residual PostNet and universal HiFi-GAN match the checked-in configurations and forward pass. It remains a simplified schematic: the hidden-state bypasses into the two embedding additions are not drawn explicitly. Energy receives `encoder_states + speaker_embedding + pitch_embedding`, not the pitch predictor's scalar output. The [variance-adaptor forward pass](project/English/model/modules.py) defines these state paths.
 
 ### Verified technical comparison
 
-| Component | Original paper (v8) | English–Telugu project | Provenance / purpose |
-|---|---|---|---|
-| **Encoder** | 4 FFT blocks; hidden 256; 2 heads; dropout 0.1 | Same depth/dimensions; dropout 0.2 in both configs | Retained reference backbone; no new encoder design claimed. |
-| **Decoder** | 4 FFT blocks | 6 FFT blocks; hidden 256; 2 heads | Six-block setting inherited from the selected GitHub baseline, not introduced for Telugu. |
-| **Variance adaptor** | Log-duration and length regulation; frame-level pitch/energy conditioning | Same duration mechanism; phone-level pitch/energy added before expansion | Phone-level settings are inherited baseline choices, yielding one target/prediction per aligned phone. |
-| **Pitch** | Frame-level CWT/iCWT prediction; 256 log-spaced F0 bins | Direct normalized phone F0 prediction; 256 linear bins; no CWT | Simplified target representation already used by the reference implementation; no quality gain is established here. |
-| **Energy** | Frame-level STFT L2 magnitude; 256 uniform bins | Normalized phone-average STFT energy; 256 linear bins; predicted from pitch-conditioned states | Groups energy by phone while retaining explicit energy conditioning. |
-| **Mel refinement** | No separate PostNet specified in Figure 1 / Appendix A | `refined_mel = mel + PostNet(mel)` | Residual refinement retained from the GitHub implementation, not a new project component. |
-| **Vocoder** | Pretrained Parallel WaveGAN for FastSpeech 2 | Pretrained **universal HiFi-GAN**, loaded separately | Reuses the available universal generator for the selected multi-voice configuration; not trained as part of these acoustic models. |
-| **Speaker conditioning** | LJSpeech experiment; additional speaker variance discussed as future work | Learned speaker embedding enabled for both language models | Conditions synthesis on Svarah profiles and Telugu source voices. |
-| **Language adaptation** | English LJSpeech evaluation with a G2P frontend | Separate Svarah/IndicTTS models; English lexicon/G2P and Telugu Unicode phones, numeric normalization and independent metadata | Implements the assignment's separate-language datasets and preserves Telugu vowel/virama information. |
+| Component | Original paper (v8) | English–Telugu project |
+|---|---|---|
+| **Encoder / decoder** | 4 / 4 FFT blocks; hidden 256; 2 heads; dropout 0.1 | 4 / 6 blocks; same dimensions; dropout 0.2 |
+| **Pitch and variance adaptor** | Frame-level CWT/iCWT; 256 log-spaced F0 bins | Direct normalized phone F0; 256 linear bins; conditioning before length expansion |
+| **Energy conditioning** | Frame-level STFT L2 magnitude; 256 uniform bins | Normalized phone-average energy; 256 linear bins; pitch-conditioned hidden states |
+| **Mel refinement / vocoder** | No separate PostNet specified; pretrained Parallel WaveGAN | Residual PostNet; separate pretrained universal HiFi-GAN |
+| **Languages / speakers** | English LJSpeech experiment | Separate Svarah/IndicTTS models, language-specific frontends and learned speaker embeddings |
 
 **Verification sources:** [English config](project/English/config.yaml), [Telugu config](project/Telugu/config.yaml), [Transformer](project/English/transformer/Models.py), [variance adaptor](project/English/model/modules.py), [residual PostNet forward pass](project/English/model/fastspeech2.py), [vocoder loader](project/English/utils/model.py), [English frontend](project/English/inference.py), and [Telugu frontend](project/Telugu/text/cleaners.py).
 
 **Why these adaptations:** separate acoustic models and language-specific frontends meet the assignment's data/language requirements; speaker embeddings condition the multi-voice data; normalized phone-level targets support the saved phone-aligned duration/F0/energy analysis. The six-block decoder, phone-level representation, residual PostNet and HiFi-GAN support largely come from the [selected reference configuration](https://github.com/ming024/FastSpeech2/blob/d4e79eb52e8b01d24703b2dfc0385544092958f3/config/LJSpeech/model.yaml), [feature settings](https://github.com/ming024/FastSpeech2/blob/d4e79eb52e8b01d24703b2dfc0385544092958f3/config/LJSpeech/preprocess.yaml) and [model](https://github.com/ming024/FastSpeech2/blob/d4e79eb52e8b01d24703b2dfc0385544092958f3/model/fastspeech2.py). These are inherited implementation choices; the repository does not establish a separate ablation-based motivation or performance benefit for each difference from the paper.
-
-### Implementation data flow
-
-```mermaid
-flowchart TD
-    TEXT["Language-specific text frontend"] --> ENC["Phone embedding + FFT encoder<br/>4 blocks / hidden 256 / 2 heads"]
-    ENC --> H["Add speaker embedding"]
-    H --> DP["Duration predictor"]
-    H --> PP["Pitch predictor + embedding"]
-    H --> PA["Add pitch embedding"]
-    PP --> PA
-    PA --> EP["Energy predictor + embedding"]
-    PA --> EA["Add energy embedding"]
-    EP --> EA
-    EA --> LR["Length regulator"]
-    DP -->|"Reference / predicted durations"| LR
-    LR --> DEC["FFT decoder<br/>6 blocks / hidden 256 / 2 heads"]
-    DEC --> MEL["80-bin mel projection + residual PostNet"]
-    MEL --> VOC["Pretrained universal HiFi-GAN"]
-    VOC --> WAV["22,050 Hz mono WAV"]
-```
 
 **Training** conditions the model on reference duration, pitch and energy; **inference** uses their predictions. Energy receives pitch-conditioned states, and both embeddings are added before duration expansion. [Model](project/English/model/fastspeech2.py) · [Variance adaptor](project/English/model/modules.py) · [Loss function](project/English/model/loss.py).
 
